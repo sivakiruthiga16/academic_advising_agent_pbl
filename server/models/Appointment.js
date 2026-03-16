@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const AppointmentSchema = new mongoose.Schema({
     studentId: {
@@ -52,4 +52,4 @@ const AppointmentSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Appointment', AppointmentSchema);
+export default mongoose.model('Appointment', AppointmentSchema);

@@ -1,25 +1,45 @@
-const User = require('../models/User');
-const bcrypt = require('bcryptjs');
-const Student = require('../models/Student');
-const Advisor = require('../models/Advisor');
-const AcademicRecord = require('../models/AcademicRecord');
+import User from '../models/User.js';
+import bcrypt from 'bcryptjs';
+import Student from '../models/Student.js';
+import Advisor from '../models/Advisor.js';
+import AcademicRecord from '../models/AcademicRecord.js';
+import mongoose from 'mongoose';
+import cache from '../utils/cache.js';
 
 // @desc    Get all students
 // @route   GET /api/admin/students
 // @access  Private/Admin
-exports.getAllStudents = async (req, res) => {
+export const getAllStudents = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     try {
-        const students = await User.find({ role: 'student' }).select('-password');
+        const cachedData = cache.get('all_students');
+        if (cachedData) {
+            console.log("Returning cached students list");
+            return res.json(cachedData);
+        }
 
-        // Enhance with profile data including advisor
-        const enhancedStudents = await Promise.all(students.map(async (user) => {
-            const profile = await Student.findOne({ userId: user._id }).populate('advisorId', 'name email');
-            return {
-                ...user.toObject(),
-                profile
-            };
+        console.log("Using collection:", User.collection.name);
+        
+        // Optimize: Fetch Student profiles and populate User details in one go if possible
+        // Or fetch all students first then all relevant profiles
+        const students = await User.find({ role: { $regex: /^student$/i } }).select('-password').lean();
+        
+        const studentIds = students.map(s => s._id);
+        const profiles = await Student.find({ userId: { $in: studentIds } })
+            .populate('advisorId', 'name email')
+            .lean();
+        
+        const profileMap = profiles.reduce((acc, p) => {
+            acc[p.userId.toString()] = p;
+            return acc;
+        }, {});
+
+        const enhancedStudents = students.map(user => ({
+            ...user,
+            profile: profileMap[user._id.toString()] || null
         }));
 
+        cache.set('all_students', enhancedStudents);
         res.json(enhancedStudents);
     } catch (err) {
         console.error(err.message);
@@ -30,22 +50,37 @@ exports.getAllStudents = async (req, res) => {
 // @desc    Get all advisors
 // @route   GET /api/admin/advisors
 // @access  Private/Admin
-exports.getAllAdvisors = async (req, res) => {
+export const getAllAdvisors = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     try {
-        const advisors = await User.find({ role: 'advisor' }).select('-password');
+        const cachedData = cache.get('all_advisors');
+        if (cachedData) {
+            console.log("Returning cached advisors list");
+            return res.json(cachedData);
+        }
 
-        // Enhance with profile data
+        console.log("Using collection:", User.collection.name);
+        const advisors = await User.find({ role: { $regex: /^advisor$/i } }).select('-password').lean();
+        
+        const advisorIds = advisors.map(a => a._id);
+        const profiles = await Advisor.find({ userId: { $in: advisorIds } }).lean();
+        
+        const profileMap = profiles.reduce((acc, p) => {
+            acc[p.userId.toString()] = p;
+            return acc;
+        }, {});
+
+        // Parallelize student count queries (or optimize further with aggregation but this is already better)
         const enhancedAdvisors = await Promise.all(advisors.map(async (user) => {
-            const profile = await Advisor.findOne({ userId: user._id });
-            // Count assigned students
             const studentCount = await Student.countDocuments({ advisorId: user._id });
             return {
-                ...user.toObject(),
-                profile,
+                ...user,
+                profile: profileMap[user._id.toString()] || null,
                 studentCount
             };
         }));
 
+        cache.set('all_advisors', enhancedAdvisors);
         res.json(enhancedAdvisors);
     } catch (err) {
         console.error(err.message);
@@ -56,10 +91,13 @@ exports.getAllAdvisors = async (req, res) => {
 // @desc    Assign advisor to student
 // @route   POST /api/admin/assign-advisor
 // @access  Private/Admin
-exports.assignAdvisor = async (req, res) => {
+export const assignAdvisor = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { studentId, advisorId } = req.body;
 
     try {
+        console.log("Assigning advisor:", advisorId, "to student:", studentId);
+        console.log("Using collection:", Student.collection.name);
         let studentProfile = await Student.findOne({ userId: studentId });
         if (!studentProfile) {
             return res.status(404).json({ msg: 'Student profile not found' });
@@ -73,7 +111,11 @@ exports.assignAdvisor = async (req, res) => {
 
         studentProfile.advisorId = advisorId;
         await studentProfile.save();
-
+        
+        // Clear caches
+        cache.del(['all_students', 'all_advisors']);
+        
+        console.log("MongoDB operation completed successfully");
         res.json({ msg: 'Advisor assigned successfully', student: studentProfile });
     } catch (err) {
         console.error(err.message);
@@ -84,10 +126,13 @@ exports.assignAdvisor = async (req, res) => {
 // @desc    Add or Update academic record
 // @route   POST /api/admin/academic-records
 // @access  Private/Admin
-exports.addAcademicRecord = async (req, res) => {
+export const addAcademicRecord = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { studentId, semester, subjects, cgpa: manualCgpa } = req.body;
 
     try {
+        console.log("Adding/Updating academic record for student:", studentId);
+        console.log("Using collection:", AcademicRecord.collection.name);
         // Calculate CGPA if not provided manually
         let semesterGPA;
         if (manualCgpa !== undefined && manualCgpa !== '') {
@@ -126,6 +171,7 @@ exports.addAcademicRecord = async (req, res) => {
             });
             await record.save();
         }
+        console.log("MongoDB operation completed successfully");
 
         // Update Student Overall CGPA (Average of all semesters)
         const allRecords = await AcademicRecord.find({ studentId });
@@ -157,18 +203,30 @@ exports.addAcademicRecord = async (req, res) => {
 // @desc    Create a new student
 // @route   POST /api/admin/create-student
 // @access  Private/Admin
-exports.createStudent = async (req, res) => {
+export const createStudent = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { name, email, department, password, advisorId, cgpa } = req.body;
+    console.log("Creating user (student):", email);
 
     // Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ success: false, msg: 'Email format invalid' });
+    }
+    if (password && password.length < 6) {
+        return res.status(400).json({ success: false, msg: 'Password too short' });
+    }
     if (cgpa !== undefined && (cgpa < 0 || cgpa > 10)) {
-        return res.status(400).json({ msg: 'CGPA must be between 0 and 10' });
+        return res.status(400).json({ success: false, msg: 'CGPA must be between 0 and 10' });
     }
 
     try {
+        console.log("Using collection:", User.collection.name);
+        console.log("Incoming student data:", req.body);
         let user = await User.findOne({ email });
         if (user) {
-            return res.status(400).json({ msg: 'User already exists' });
+            console.log("Student creation failed: User already exists");
+            return res.status(400).json({ success: false, msg: 'User already exists' });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -181,7 +239,8 @@ exports.createStudent = async (req, res) => {
             role: 'student'
         });
 
-        await user.save();
+        const savedUser = await user.save();
+        console.log("User saved successfully:", savedUser._id);
 
         const studentProfile = new Student({
             userId: user.id,
@@ -192,24 +251,46 @@ exports.createStudent = async (req, res) => {
         });
 
         await studentProfile.save();
+        console.log("Student profile saved successfully:", studentProfile._id);
+        
+        // Clear caches
+        cache.del('all_students');
+        
+        console.log("MongoDB operation completed successfully");
 
-        res.json({ msg: 'Student created successfully', user });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        res.json({
+            success: true,
+            msg: "Student created successfully",
+            user
+        });
+    } catch (error) {
+        console.error("User creation error:", error);
+        res.status(500).json({ success: false, msg: "Server error" });
     }
 };
 
 // @desc    Create a new advisor
 // @route   POST /api/admin/create-advisor
 // @access  Private/Admin
-exports.createAdvisor = async (req, res) => {
+export const createAdvisor = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { name, email, department, password } = req.body;
+    // Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ success: false, msg: 'Email format invalid' });
+    }
+    if (password && password.length < 6) {
+        return res.status(400).json({ success: false, msg: 'Password too short' });
+    }
 
     try {
+        console.log("Using collection:", User.collection.name);
+        console.log("Incoming advisor data:", req.body);
         let user = await User.findOne({ email });
         if (user) {
-            return res.status(400).json({ msg: 'User already exists' });
+            console.log("Advisor creation failed: User already exists");
+            return res.status(400).json({ success: false, msg: 'User already exists' });
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -222,7 +303,8 @@ exports.createAdvisor = async (req, res) => {
             role: 'advisor'
         });
 
-        await user.save();
+        const savedUser = await user.save();
+        console.log("User saved successfully:", savedUser._id);
 
         const advisorProfile = new Advisor({
             userId: user.id,
@@ -230,49 +312,78 @@ exports.createAdvisor = async (req, res) => {
         });
 
         await advisorProfile.save();
+        console.log("Advisor profile saved successfully:", advisorProfile._id);
+        
+        // Clear caches
+        cache.del('all_advisors');
+        
+        console.log("MongoDB operation completed successfully");
 
-        res.json({ msg: 'Advisor created successfully', user });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        res.json({
+            success: true,
+            msg: "Advisor created successfully",
+            user
+        });
+    } catch (error) {
+        console.error("User creation error:", error);
+        res.status(500).json({ success: false, msg: "Server error" });
     }
 };
 
 // @desc    Delete user
 // @route   DELETE /api/admin/user/:id
 // @access  Private/Admin
-exports.deleteUser = async (req, res) => {
+export const deleteUser = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     try {
-        const user = await User.findById(req.params.id);
+        console.log("Deleting user ID:", req.params.id);
+        console.log("Delete request received:", req.params.id);
+        const id = new mongoose.Types.ObjectId(req.params.id);
+
+        const user = await User.findById(id);
         if (!user) {
-            return res.status(404).json({ msg: 'User not found' });
+            return res.status(404).json({ success: false, msg: 'User not found' });
         }
 
         // Remove associated profile
         if (user.role === 'student') {
-            await Student.findOneAndDelete({ userId: user.id });
-            await AcademicRecord.deleteMany({ studentId: user.id });
-            // await Appointment.deleteMany({ studentId: user.id }); // optional cleanup
-            // await Remark.deleteMany({ studentId: user.id });
+            await Student.deleteOne({ userId: id });
+            await AcademicRecord.deleteMany({ studentId: id });
         } else if (user.role === 'advisor') {
-            await Advisor.findOneAndDelete({ userId: user.id });
-            // Should properly handle unassigning students here in real app
-            await Student.updateMany({ advisorId: user.id }, { $set: { advisorId: null } });
+            await Advisor.deleteOne({ userId: id });
+            await Student.updateMany({ advisorId: id }, { $set: { advisorId: null } });
         }
 
-        await User.findByIdAndDelete(req.params.id);
+        console.log("Using collection:", User.collection.name);
+        const result = await User.deleteOne({ _id: id });
+        console.log("Delete result:", result);
+        console.log("MongoDB operation completed successfully");
 
-        res.json({ msg: 'User deleted' });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        if (result.deletedCount === 0) {
+            return res.status(404).json({
+                success: false,
+                msg: "User not found"
+            });
+        }
+
+        res.json({
+            success: true,
+            msg: "User deleted successfully"
+        });
+    } catch (error) {
+        console.error("Delete error:", error);
+        res.status(500).json({
+            success: false,
+            msg: "Server error"
+        });
     }
 };
 
 // @desc    Update student details (including CGPA)
 // @route   PUT /api/admin/student/:id
 // @access  Private/Admin
-exports.updateStudent = async (req, res) => {
+export const updateStudent = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { name, email, department, cgpa, advisorId } = req.body;
 
     // Validation
@@ -281,6 +392,8 @@ exports.updateStudent = async (req, res) => {
     }
 
     try {
+        console.log("Updating student:", req.params.id);
+        console.log("Using collection:", User.collection.name);
         let user = await User.findById(req.params.id);
         if (!user) {
             return res.status(404).json({ msg: 'User not found' });
@@ -290,6 +403,8 @@ exports.updateStudent = async (req, res) => {
         if (name) user.name = name;
         if (email) user.email = email;
         await user.save();
+        console.log("User record updated successfully");
+        console.log("MongoDB operation completed successfully");
 
         // Update Student Profile fields
         let studentProfile = await Student.findOne({ userId: req.params.id });
@@ -298,6 +413,8 @@ exports.updateStudent = async (req, res) => {
             if (cgpa !== undefined) studentProfile.cgpa = cgpa; // Allow setting to 0
             if (advisorId) studentProfile.advisorId = advisorId;
             await studentProfile.save();
+            console.log("Student profile updated successfully");
+            console.log("MongoDB operation completed successfully");
         }
 
         res.json({ msg: 'Student updated successfully', user, profile: studentProfile });
@@ -310,10 +427,13 @@ exports.updateStudent = async (req, res) => {
 // @desc    Update advisor details
 // @route   PUT /api/admin/advisor/:id
 // @access  Private/Admin
-exports.updateAdvisor = async (req, res) => {
+export const updateAdvisor = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { name, email, department } = req.body;
 
     try {
+        console.log("Updating advisor:", req.params.id);
+        console.log("Using collection:", User.collection.name);
         let user = await User.findById(req.params.id);
         if (!user || user.role !== 'advisor') {
             return res.status(404).json({ msg: 'Advisor not found' });
@@ -329,6 +449,8 @@ exports.updateAdvisor = async (req, res) => {
         if (advisorProfile) {
             if (department) advisorProfile.department = department;
             await advisorProfile.save();
+            console.log("Advisor profile updated successfully");
+            console.log("MongoDB operation completed successfully");
         }
 
         res.json({ msg: 'Advisor updated successfully', user, profile: advisorProfile });

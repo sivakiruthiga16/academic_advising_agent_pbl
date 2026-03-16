@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const auth = require('../middleware/authMiddleware');
-const appointmentController = require('../controllers/appointmentController');
+import auth from '../middleware/authMiddleware.js';
+import * as appointmentController from '../controllers/appointmentController.js';
 
 // @route   GET api/appointments
 // @desc    Get all appointments (Role specific)
@@ -24,4 +24,4 @@ router.get('/notifications/advisor/:advisorId', auth, appointmentController.getN
 router.get('/notifications/student/:studentId', auth, appointmentController.getNotificationCounts);
 router.put('/notifications/mark-viewed', auth, appointmentController.markNotificationsViewed);
 
-module.exports = router;
+export default router;

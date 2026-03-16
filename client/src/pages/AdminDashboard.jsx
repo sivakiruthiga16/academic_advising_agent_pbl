@@ -27,17 +27,21 @@ const AdminDashboard = () => {
     const [advisorEditData, setAdvisorEditData] = useState({ name: '', email: '', department: '' });
     const [appointments, setAppointments] = useState([]);
     const [viewingAppointment, setViewingAppointment] = useState(null);
+    const [studentRecords, setStudentRecords] = useState([]);
+    const [remarks, setRemarks] = useState([]);
 
     // Fetch student's existing record when studentId changes in actions tab
     useEffect(() => {
-        if (activeTab === 'actions' && recordData.studentId && recordData.semester) {
+        if (activeTab === 'actions' && recordData.studentId) {
             fetchExistingRecord();
+            fetchStudentRemarks();
         }
     }, [recordData.studentId, recordData.semester, activeTab]);
 
     const fetchExistingRecord = async () => {
         try {
             const res = await axios.get(`/api/academic/records/${recordData.studentId}`);
+            setStudentRecords(res.data);
             if (res.data && res.data.length > 0) {
                 // Find record for current semester if possible, else just use the latest
                 const existing = res.data.find(r => r.semester === recordData.semester) || res.data[0];
@@ -55,6 +59,15 @@ const AdminDashboard = () => {
         }
     };
 
+    const fetchStudentRemarks = async () => {
+        try {
+            const res = await axios.get(`/api/academic/remarks/${recordData.studentId}`);
+            setRemarks(res.data);
+        } catch (err) {
+            console.error("Failed to fetch remarks");
+        }
+    };
+
     useEffect(() => {
         const path = location.pathname;
         if (path.includes('/students')) setActiveTab('students');
@@ -64,7 +77,7 @@ const AdminDashboard = () => {
         else if (path.includes('/actions')) setActiveTab('actions');
         else setActiveTab('students'); // Default or root
 
-        fetchData();
+        fetchData(true);
     }, [location.pathname]);
 
     const handleTabChange = (tab) => {
@@ -76,24 +89,31 @@ const AdminDashboard = () => {
         else if (tab === 'actions') navigate('/admin');
     };
 
-    const fetchData = async () => {
-        setLoading(true);
+    const loadUsers = async (isInitial = false) => {
+        if (isInitial) setLoading(true);
+        
+        // Progressive Loading: Load critical data first
         try {
-            const [studentsRes, advisorsRes, appointmentsRes] = await Promise.all([
-                axios.get('/api/admin/students'),
+            const studentRes = await axios.get('/api/admin/students');
+            setStudents(studentRes.data);
+            if (isInitial) setLoading(false); // Show UI as soon as students are loaded
+
+            // Load remaining data in background
+            const [advisorsRes, appointmentsRes] = await Promise.all([
                 axios.get('/api/admin/advisors'),
                 axios.get('/api/appointments')
             ]);
-            setStudents(studentsRes.data);
             setAdvisors(advisorsRes.data);
             setAppointments(appointmentsRes.data);
         } catch (err) {
             console.error(err);
-            toast.error('Failed to fetch data');
+            toast.error('Data unavailable. Try again later.');
         } finally {
             setLoading(false);
         }
     };
+
+    const fetchData = loadUsers; // Keep reference for any other calls
 
     const handleUpdateAppointmentStatus = async (id, status) => {
         try {
@@ -111,11 +131,21 @@ const AdminDashboard = () => {
     const handleDeleteAppointment = async (id) => {
         if (!window.confirm('Are you sure you want to delete this appointment?')) return;
         try {
-            await axios.delete(`/api/appointments/${id}`);
-            setAppointments(appointments.filter(app => app._id !== id));
-            toast.success('Appointment deleted');
-            if (viewingAppointment && viewingAppointment._id === id) setViewingAppointment(null);
+            console.log("Deleting appointment ID:", id);
+            const response = await axios.delete(`/api/appointments/${id}`);
+            if (response.data && response.data.success) {
+                setAppointments(appointments.filter(app => app._id !== id));
+                toast.success('Appointment deleted successfully');
+                if (viewingAppointment && viewingAppointment._id === id) setViewingAppointment(null);
+                await loadUsers();
+            } else {
+                setAppointments(appointments.filter(app => app._id !== id));
+                toast.success('Appointment deleted');
+                if (viewingAppointment && viewingAppointment._id === id) setViewingAppointment(null);
+                await loadUsers();
+            }
         } catch (err) {
+            console.error(err);
             toast.error('Failed to delete appointment');
         }
     };
@@ -125,7 +155,7 @@ const AdminDashboard = () => {
         try {
             await axios.post('/api/admin/assign-advisor', assignmentData);
             toast.success('Advisor assigned successfully');
-            fetchData();
+            await loadUsers();
             setAssignmentData({ studentId: '', advisorId: '' });
         } catch (err) {
             toast.error(err.response?.data?.msg || 'Failed to assign advisor');
@@ -138,6 +168,8 @@ const AdminDashboard = () => {
             await axios.post('/api/admin/academic-records', recordData);
             toast.success('Academic record added');
             setRecordData({ studentId: '', semester: '', subjects: [{ name: '', marks: '' }] });
+            fetchExistingRecord();
+            loadUsers(); // Refresh to sync CGPA if needed
         } catch (err) {
             toast.error(err.response?.data?.msg || 'Failed to add record');
         }
@@ -158,11 +190,19 @@ const AdminDashboard = () => {
         e.preventDefault();
         if (createStudentData.password.length < 6) return toast.error('Password must be at least 6 chars');
         try {
-            await axios.post('/api/admin/create-student', createStudentData);
-            toast.success('Student created successfully');
-            setCreateStudentData({ name: '', email: '', department: '', password: '', advisorId: '', cgpa: '' });
-            fetchData();
+            console.log("Sending student data:", createStudentData);
+            const response = await axios.post('/api/admin/create-student', createStudentData);
+            console.log("Create student response:", response.data);
+            
+            if (response.data && response.data.success) {
+                toast.success('User added successfully!');
+                setCreateStudentData({ name: '', email: '', department: '', password: '', advisorId: '', cgpa: '' });
+                await loadUsers();
+            } else {
+                toast.error(response.data.msg || 'Data unavailable. Try again later.');
+            }
         } catch (err) {
+            console.error("Create student error:", err);
             toast.error(err.response?.data?.msg || 'Failed to create student');
         }
     };
@@ -171,11 +211,19 @@ const AdminDashboard = () => {
         e.preventDefault();
         if (createAdvisorData.password.length < 6) return toast.error('Password must be at least 6 chars');
         try {
-            await axios.post('/api/admin/create-advisor', createAdvisorData);
-            toast.success('Advisor created successfully');
-            setCreateAdvisorData({ name: '', email: '', department: '', password: '' });
-            fetchData();
+            console.log("Sending advisor data:", createAdvisorData);
+            const response = await axios.post('/api/admin/create-advisor', createAdvisorData);
+            console.log("Create advisor response:", response.data);
+            
+            if (response.data && response.data.success) {
+                toast.success('User added successfully!');
+                setCreateAdvisorData({ name: '', email: '', department: '', password: '' });
+                await loadUsers();
+            } else {
+                toast.error(response.data.msg || 'Data unavailable. Try again later.');
+            }
         } catch (err) {
+            console.error("Create advisor error:", err);
             toast.error(err.response?.data?.msg || 'Failed to create advisor');
         }
     };
@@ -186,7 +234,7 @@ const AdminDashboard = () => {
             await axios.put(`/api/admin/advisor/${editingAdvisor._id}`, advisorEditData);
             toast.success('Advisor updated successfully');
             setEditingAdvisor(null);
-            fetchData();
+            await loadUsers();
         } catch (err) {
             toast.error(err.response?.data?.msg || 'Failed to update advisor');
         }
@@ -195,11 +243,56 @@ const AdminDashboard = () => {
     const handleDeleteUser = async (id, role) => {
         if (!window.confirm(`Are you sure you want to delete this ${role}?`)) return;
         try {
-            await axios.delete(`/api/admin/user/${id}`);
-            toast.success('User deleted successfully');
-            fetchData();
+            console.log(`Deleting ${role} ID:`, id);
+            const response = await axios.delete(`/api/admin/user/${id}`);
+            if (response.data && response.data.success) {
+                toast.success('User deleted successfully');
+                await loadUsers();
+            } else {
+                toast.success('User deleted');
+                await loadUsers();
+            }
         } catch (err) {
+            console.error(err);
             toast.error('Failed to delete user');
+        }
+    };
+
+    const handleDeleteRecord = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this record?')) return;
+        try {
+            console.log("Deleting academic record ID:", id);
+            const response = await axios.delete(`/api/academic/records/${id}`);
+            if (response.data && response.data.success) {
+                toast.success('Record deleted successfully');
+                fetchExistingRecord();
+                await loadUsers(); // Refresh main lists to sync CGPA
+            } else {
+                toast.success('Record deleted');
+                fetchExistingRecord();
+                await loadUsers();
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to delete record');
+        }
+    };
+
+    const handleDeleteRemark = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this remark?')) return;
+        try {
+            console.log("Deleting remark ID:", id);
+            const response = await axios.delete(`/api/academic/remark/${id}`);
+            if (response.data && response.data.success) {
+                toast.success('Remark deleted successfully');
+                fetchStudentRemarks();
+            } else {
+                toast.success('Remark deleted');
+                fetchStudentRemarks();
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('Failed to delete remark');
         }
     };
 
@@ -564,7 +657,7 @@ const AdminDashboard = () => {
                                         <td className="py-3 font-medium">{apt.studentId?.name || 'Unknown'}</td>
                                         <td className="py-3 text-gray-600">{apt.advisorId?.name || 'Unknown'}</td>
                                         <td className="py-3 text-gray-600">{new Date(apt.date).toLocaleDateString()}</td>
-                                        <td className="py-3 text-gray-600">{apt.time}</td>
+                                        <td className="py-3 text-gray-600">{apt.time || "Not Scheduled"}</td>
                                         <td className="py-3 text-gray-600 max-w-xs truncate" title={apt.reason}>{apt.reason}</td>
                                         <td className="py-3 text-gray-500 text-xs">{apt.createdAt ? new Date(apt.createdAt).toLocaleDateString() : 'N/A'}</td>
                                         <td className="py-3">
@@ -740,7 +833,85 @@ const AdminDashboard = () => {
                         </form>
                     </div>
 
-                    {/* Additional Unified Info or Quick Actions could go here */}
+                    {/* Records List Section */}
+                    {recordData.studentId && (
+                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-700">
+                                <BookOpen className="h-5 w-5" /> Existing Records for Student
+                            </h3>
+                            {studentRecords.length === 0 ? (
+                                <p className="text-gray-500 italic">No historical records found for this student.</p>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-sm">
+                                        <thead>
+                                            <tr className="border-b text-gray-400 font-medium">
+                                                <th className="pb-2">Semester</th>
+                                                <th className="pb-2">CGPA</th>
+                                                <th className="pb-2">Subjects Count</th>
+                                                <th className="pb-2 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {studentRecords.map(record => (
+                                                <tr key={record._id} className="border-b last:border-0 hover:bg-gray-50">
+                                                    <td className="py-2.5 font-medium">{record.semester}</td>
+                                                    <td className="py-2.5 font-bold text-indigo-600">{record.cgpa.toFixed(2)}</td>
+                                                    <td className="py-2.5 text-gray-600">{record.subjects?.length || 0}</td>
+                                                    <td className="py-2.5 text-right">
+                                                        <button 
+                                                            onClick={() => handleDeleteRecord(record._id)}
+                                                            className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                                                            title="Delete Record"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Advisor Remarks Section */}
+                    {recordData.studentId && (
+                        <div className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+                            <h3 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-700">
+                                <PlusCircle className="h-5 w-5" /> Advisor Remarks
+                            </h3>
+                            {remarks.length === 0 ? (
+                                <p className="text-gray-500 italic">No remarks found for this student.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {remarks.map(remark => (
+                                        <div key={remark._id} className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex justify-between items-start">
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <span className="text-xs font-black text-indigo-600 uppercase tracking-widest">
+                                                        {remark.advisorId?.name || 'Unknown Advisor'}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-400">
+                                                        {new Date(remark.createdAt).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-700">{remark.remark}</p>
+                                            </div>
+                                            <button 
+                                                onClick={() => handleDeleteRemark(remark._id)}
+                                                className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors ml-4"
+                                                title="Delete Remark"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
             {/* Student Edit Modal */}
@@ -752,7 +923,7 @@ const AdminDashboard = () => {
                             onStudentAdded={() => {
                                 setShowEditModal(false);
                                 setEditingStudent(null);
-                                fetchData();
+                                loadUsers();
                             }}
                             onCancel={() => {
                                 setShowEditModal(false);

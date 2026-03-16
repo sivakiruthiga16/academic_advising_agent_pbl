@@ -1,12 +1,17 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const authController = require('../controllers/authController');
-const auth = require('../middleware/authMiddleware');
+import * as authController from '../controllers/authController.js';
+import auth from '../middleware/authMiddleware.js';
 
 // @route   POST api/auth/login
 // @desc    Authenticate user & get token
 // @access  Public
 router.post('/login', authController.login);
+
+// @route   POST api/auth/google
+// @desc    Authenticate user via Google
+// @access  Public
+router.post('/google', authController.googleLogin);
 
 // @route   POST api/auth/register
 // @route   GET api/auth/advisors
@@ -19,4 +24,4 @@ router.get('/advisors', authController.getAdvisors);
 // @access  Private
 router.get('/me', auth, authController.getMe);
 
-module.exports = router;
+export default router;

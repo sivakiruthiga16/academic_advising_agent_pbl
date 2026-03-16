@@ -1,0 +1,35 @@
+{
+  "name": "academic_advising_agent",
+  "version": "1.0.0",
+  "description": "A full-stack MERN application for managing academic advising records.",
+  "main": "server/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "nodemon server/server.js",
+    "client": "cd client && npm run dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sivakiruthiga16/academic_advising_agent_pbl.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/sivakiruthiga16/academic_advising_agent_pbl/issues"
+  },
+  "homepage": "https://github.com/sivakiruthiga16/academic_advising_agent_pbl#readme",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "concurrently": "^8.2.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2",
+    "mongoose": "^7.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

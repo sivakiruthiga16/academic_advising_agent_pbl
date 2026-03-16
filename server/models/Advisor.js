@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const AdvisorSchema = new mongoose.Schema({
     userId: {
@@ -12,4 +12,4 @@ const AdvisorSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Advisor', AdvisorSchema);
+export default mongoose.model('Advisor', AdvisorSchema);

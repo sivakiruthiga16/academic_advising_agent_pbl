@@ -73,16 +73,18 @@ const AdvisorDashboard = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [studentsRes, appointmentsRes] = await Promise.all([
-                axios.get('/api/advisor/students'),
-                axios.get('/api/advisor/appointments')
-            ]);
+            // Progressive Loading: Load critical students list first
+            const studentsRes = await axios.get('/api/advisor/students');
             setStudents(studentsRes.data);
+            setLoading(false); // Show UI as soon as students are loaded
+
+            // Load appointments in background
+            const appointmentsRes = await axios.get('/api/advisor/appointments');
             setAppointments(appointmentsRes.data);
             if (activeTab === 'appointments') checkNotifications(); // Sync if on tab
         } catch (err) {
             console.error(err);
-            toast.error('Failed to fetch dashboard data');
+            toast.error('Data unavailable. Try again later.');
         } finally {
             setLoading(false);
         }
@@ -222,7 +224,7 @@ const AdvisorDashboard = () => {
                                 <div key={apt._id} className="relative border p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:shadow-md transition-shadow">
                                     <div>
                                         <p className="font-bold text-gray-800">{apt.studentId?.name}</p>
-                                        <p className="text-sm text-gray-600">{new Date(apt.date).toLocaleDateString()} at {apt.time}</p>
+                                        <p className="text-sm text-gray-600">{new Date(apt.date).toLocaleDateString()} at {apt.time || "Not Scheduled"}</p>
                                         <p className="text-gray-700 mt-1 italic">"{apt.reason}"</p>
                                     </div>
                                     <div className="flex items-center gap-3">

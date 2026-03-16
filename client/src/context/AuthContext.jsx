@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
                     axios.defaults.headers.common['x-auth-token'] = token;
 
                     // Verify token and get user details
-                    const res = await axios.get('http://localhost:5000/api/auth/me');
+                    const res = await axios.get('/api/auth/me');
 
                     if (res.data) {
                         setUser({ ...res.data, token });
@@ -41,7 +41,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (email, password) => {
-        const res = await axios.post('http://localhost:5000/api/auth/login', { email, password });
+        const res = await axios.post('/api/auth/login', { email, password });
         const { token, role } = res.data;
 
         localStorage.setItem('token', token);
@@ -56,8 +56,20 @@ export const AuthProvider = ({ children }) => {
     };
 
     const register = async (formData) => {
-        const res = await axios.post('http://localhost:5000/api/auth/register', formData);
+        const res = await axios.post('/api/auth/register', formData);
         return res.data;
+    };
+
+    const googleLogin = async (token) => {
+        const res = await axios.post('/api/auth/google', { credential: token });
+        const { token: jwtToken, role } = res.data;
+
+        localStorage.setItem('token', jwtToken);
+        localStorage.setItem('role', role);
+        axios.defaults.headers.common['x-auth-token'] = jwtToken;
+
+        setUser({ role, token: jwtToken });
+        return role;
     };
 
     const logout = useCallback(() => {
@@ -68,7 +80,7 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, googleLogin, register, logout, loading }}>
             {children}
         </AuthContext.Provider>
     );

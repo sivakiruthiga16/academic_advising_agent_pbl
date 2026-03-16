@@ -1,14 +1,17 @@
-const Appointment = require('../models/Appointment');
-const User = require('../models/User');
-const Student = require('../models/Student');
+import Appointment from '../models/Appointment.js';
+import User from '../models/User.js';
+import Student from '../models/Student.js';
+import mongoose from 'mongoose';
 
 // @route   POST api/appointments
 // @desc    Book an appointment (Student)
 // @access  Private (Student)
-exports.bookAppointment = async (req, res) => {
+export const bookAppointment = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { advisorId, date, time, reason } = req.body;
-
     try {
+        console.log("Creating appointment for student:", req.user.user.id);
+        console.log("Using collection:", Appointment.collection.name);
         const student = await Student.findOne({ userId: req.user.user.id });
         if (!student) return res.status(404).json({ msg: 'Student profile not found' });
 
@@ -23,13 +26,14 @@ exports.bookAppointment = async (req, res) => {
             advisorId,
             date,
             time,
-            time,
             reason,
             advisorViewed: false, // Explicitly set for notification trigger
         });
 
-        await newAppointment.save();
-        res.json(newAppointment);
+        const appointment = await newAppointment.save();
+        console.log("Appointment saved successfully:", appointment._id);
+        console.log("MongoDB operation completed successfully");
+        res.json(appointment);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -39,11 +43,14 @@ exports.bookAppointment = async (req, res) => {
 // @route   GET api/appointments
 // @desc    Get appointments for current user (Student/Advisor/Admin)
 // @access  Private
-exports.getAppointments = async (req, res) => {
+export const getAppointments = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     try {
         let appointments;
         const userId = req.user.user.id;
         const role = req.user.user.role;
+        console.log(`Fetching appointments for ${role}:`, userId);
+        console.log("Using collection:", Appointment.collection.name);
 
         if (role === 'student') {
             appointments = await Appointment.find({ studentId: userId })
@@ -77,10 +84,13 @@ exports.getAppointments = async (req, res) => {
 // @route   PUT api/appointments/:id
 // @desc    Update appointment status (Advisor/Admin)
 // @access  Private
-exports.updateAppointmentStatus = async (req, res) => {
+export const updateAppointmentStatus = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     const { status } = req.body;
 
     try {
+        console.log("Updating appointment status for ID:", req.params.id);
+        console.log("Using collection:", Appointment.collection.name);
         let appointment = await Appointment.findById(req.params.id);
         if (!appointment) return res.status(404).json({ msg: 'Appointment not found' });
 
@@ -93,6 +103,8 @@ exports.updateAppointmentStatus = async (req, res) => {
         appointment.studentViewed = false;
         appointment.statusUpdatedAt = Date.now();
         await appointment.save();
+        console.log("Appointment status updated successfully");
+        console.log("MongoDB operation completed successfully");
 
         res.json(appointment);
     } catch (err) {
@@ -104,27 +116,50 @@ exports.updateAppointmentStatus = async (req, res) => {
 // @route   DELETE api/appointments/:id
 // @desc    Delete appointment
 // @access  Private (Admin)
-exports.deleteAppointment = async (req, res) => {
+export const deleteAppointment = async (req, res) => {
+    console.log("Incoming request:", req.method, req.originalUrl);
     try {
-        const appointment = await Appointment.findById(req.params.id);
-        if (!appointment) return res.status(404).json({ msg: 'Appointment not found' });
+        console.log("Deleting appointment ID:", req.params.id);
+        const id = new mongoose.Types.ObjectId(req.params.id);
 
-        // Ensure authorized (Admin only for now, or maybe student/advisor can cancel? usage specifies Admin Actions)
-        if (req.user.user.role !== 'admin') {
-            return res.status(401).json({ msg: 'Not authorized' });
+        const appointment = await Appointment.findById(id);
+        if (!appointment) {
+            return res.status(404).json({ success: false, msg: 'Appointment not found' });
         }
 
-        await Appointment.deleteOne({ _id: req.params.id });
-        res.json({ msg: 'Appointment removed' });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        // Ensure authorized (Admin only)
+        if (req.user.user.role !== 'admin') {
+            return res.status(401).json({ success: false, msg: 'Not authorized' });
+        }
+
+        console.log("Using collection:", Appointment.collection.name);
+        const result = await Appointment.deleteOne({ _id: id });
+        console.log("Delete result:", result);
+        console.log("MongoDB operation completed successfully");
+
+        if (result.deletedCount === 0) {
+            return res.status(404).json({
+                success: false,
+                msg: "Appointment not found"
+            });
+        }
+
+        res.json({
+            success: true,
+            msg: "Appointment deleted successfully"
+        });
+    } catch (error) {
+        console.error("Delete error:", error);
+        res.status(500).json({
+            success: false,
+            msg: "Server error"
+        });
     }
 };
 // @route   GET api/appointments/notifications
 // @desc    Get notification counts (supports /advisor/:id and /student/:id)
 // @access  Private
-exports.getNotificationCounts = async (req, res) => {
+export const getNotificationCounts = async (req, res) => {
     try {
         const userId = req.user.user.id;
         const role = req.user.user.role;
@@ -161,7 +196,7 @@ exports.getNotificationCounts = async (req, res) => {
 // @route   PUT api/appointments/notifications/mark-viewed
 // @desc    Mark notifications as viewed
 // @access  Private
-exports.markNotificationsViewed = async (req, res) => {
+export const markNotificationsViewed = async (req, res) => {
     try {
         const userId = req.user.user.id;
         const role = req.user.user.role;

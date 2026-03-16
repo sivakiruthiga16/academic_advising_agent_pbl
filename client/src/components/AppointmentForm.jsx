@@ -7,6 +7,7 @@ const AppointmentForm = ({ advisorId, onAppointmentAdded }) => {
     const [formData, setFormData] = useState({
         advisorId: advisorId || '',
         date: '',
+        time: '',
         reason: ''
     });
     const [advisors, setAdvisors] = useState([]);
@@ -40,7 +41,7 @@ const AppointmentForm = ({ advisorId, onAppointmentAdded }) => {
                 headers: { 'x-auth-token': localStorage.getItem('token') }
             });
             toast.success('Consultation request sent!');
-            setFormData({ advisorId: advisorId || '', date: '', reason: '' });
+            setFormData({ advisorId: advisorId || '', date: '', time: '', reason: '' });
             if (onAppointmentAdded) onAppointmentAdded();
         } catch (err) {
             toast.error(err.response?.data?.msg || 'Failed to book slot');
@@ -92,6 +93,20 @@ const AppointmentForm = ({ advisorId, onAppointmentAdded }) => {
                                 type="date"
                                 value={date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                                required
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wider ml-1">Select Time</label>
+                        <div className="relative group">
+                            <Clock className="absolute left-3 top-3.5 h-4 w-4 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
+                            <input
+                                type="time"
+                                value={formData.time}
+                                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                                 className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
                                 required
                             />

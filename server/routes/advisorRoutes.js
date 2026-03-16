@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const advisorController = require('../controllers/advisorController');
-const auth = require('../middleware/authMiddleware');
-const checkRole = require('../middleware/roleMiddleware');
+import * as advisorController from '../controllers/advisorController.js';
+import auth from '../middleware/authMiddleware.js';
+import checkRole from '../middleware/roleMiddleware.js';
 
 // Base route: /api/advisor
 
@@ -15,4 +15,4 @@ router.get('/appointments', advisorController.getAppointments);
 router.put('/appointments/:id', advisorController.updateAppointmentStatus);
 router.get('/student/:studentId/records', advisorController.getStudentRecords);
 
-module.exports = router;
+export default router;

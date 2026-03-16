@@ -76,20 +76,24 @@ const StudentDashboard = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [profileRes, recordsRes, remarksRes, appointmentsRes] = await Promise.all([
-                axios.get('/api/student/profile'),
+            // Progressive Loading: Load basic profile first
+            const profileRes = await axios.get('/api/student/profile');
+            setProfile(profileRes.data);
+            setLoading(false); // Show UI as soon as profile is loaded
+
+            // Load secondary data in background
+            const [recordsRes, remarksRes, appointmentsRes] = await Promise.all([
                 axios.get('/api/student/records'),
                 axios.get('/api/student/remarks'),
                 axios.get('/api/student/appointments')
             ]);
-            setProfile(profileRes.data);
             setRecords(recordsRes.data);
             setRemarks(remarksRes.data);
             setAppointments(appointmentsRes.data);
             if (activeTab === 'appointments') checkNotifications();
         } catch (err) {
             console.error(err);
-            // toast.error('Failed to fetch data'); // Suppress to avoid spam on load if one fails
+            toast.error('Data unavailable. Try again later.');
         } finally {
             setLoading(false);
         }
@@ -284,7 +288,7 @@ const StudentDashboard = () => {
                                             <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span></span>
                                         )}
                                         <div>
-                                            <p className="font-medium text-gray-900">{new Date(apt.date).toLocaleDateString()} at {apt.time}</p>
+                                            <p className="font-medium text-gray-900">{new Date(apt.date).toLocaleDateString()} at {apt.time || "Not Scheduled"}</p>
                                             <p className="text-sm text-gray-600">{apt.reason}</p>
                                             <p className="text-xs text-indigo-600 mt-1">Advisor: {apt.advisorId?.name}</p>
                                         </div>

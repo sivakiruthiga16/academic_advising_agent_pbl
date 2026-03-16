@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const adminController = require('../controllers/adminController');
-const auth = require('../middleware/authMiddleware');
-const checkRole = require('../middleware/roleMiddleware');
+import * as adminController from '../controllers/adminController.js';
+import auth from '../middleware/authMiddleware.js';
+import checkRole from '../middleware/roleMiddleware.js';
 
 // Base route: /api/admin
 
@@ -21,4 +21,4 @@ router.put('/student/:id', adminController.updateStudent);
 router.put('/advisor/:id', adminController.updateAdvisor);
 router.delete('/user/:id', adminController.deleteUser);
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const RemarkSchema = new mongoose.Schema({
     studentId: {
@@ -21,4 +21,4 @@ const RemarkSchema = new mongoose.Schema({
     }
 });
 
-module.exports = mongoose.model('Remark', RemarkSchema);
+export default mongoose.model('Remark', RemarkSchema);

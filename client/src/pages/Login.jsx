@@ -3,27 +3,56 @@ import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { GraduationCap, Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { auth, googleProvider } from '../firebase';
+import { signInWithPopup } from 'firebase/auth';
 
 const Login = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { login, googleLogin } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         try {
             const role = await login(formData.email, formData.password);
-            toast.success('Welcome back!');
-
-            if (role === 'admin') navigate('/admin');
-            else if (role === 'advisor') navigate('/advisor');
-            else if (role === 'student') navigate('/student');
+            
+            if (role === 'admin') {
+                toast.success('Welcome Admin!');
+                navigate('/admin');
+            } else {
+                toast.success('Welcome back!');
+                if (role === 'advisor') navigate('/advisor');
+                else if (role === 'student') navigate('/student');
+            }
 
         } catch (err) {
             toast.error(err.response?.data?.msg || 'Login Failed');
             console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        setLoading(true);
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            const token = await result.user.getIdToken();
+            
+            const role = await googleLogin(token);
+            if (role === 'admin') {
+                toast.success('Welcome Admin!');
+                navigate('/admin');
+            } else {
+                toast.success('Google Login Successful!');
+                if (role === 'advisor') navigate('/advisor');
+                else if (role === 'student') navigate('/student');
+            }
+        } catch (err) {
+            console.error("Google Login Error:", err);
+            toast.error(err.response?.data?.msg || 'Google Login Failed');
         } finally {
             setLoading(false);
         }
@@ -92,6 +121,23 @@ const Login = () => {
                             )}
                         </button>
                     </form>
+
+                    <div className="mt-6 flex items-center justify-center space-x-4">
+                        <div className="flex-1 h-px bg-gray-200"></div>
+                        <span className="text-sm text-gray-400 font-medium">OR</span>
+                        <div className="flex-1 h-px bg-gray-200"></div>
+                    </div>
+
+                    <div className="mt-6 flex justify-center">
+                        <button
+                            onClick={handleGoogleLogin}
+                            disabled={loading}
+                            className="w-full flex items-center justify-center gap-3 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors font-medium text-gray-700 disabled:opacity-70"
+                        >
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                            <span>Sign in with Google</span>
+                        </button>
+                    </div>
 
                     {/* Registration link removed */}
                 </div>

@@ -1,8 +1,8 @@
-const express = require('express');
+import express from 'express';
 const router = express.Router();
-const auth = require('../middleware/authMiddleware');
-const role = require('../middleware/roleMiddleware');
-const academicController = require('../controllers/academicController');
+import auth from '../middleware/authMiddleware.js';
+import role from '../middleware/roleMiddleware.js';
+import * as academicController from '../controllers/academicController.js';
 
 // @route   POST api/academic/remark
 // @access  Private (Advisor/Admin)
@@ -24,4 +24,12 @@ router.post('/records', auth, role(['admin']), academicController.upsertRecord);
 // @access  Private
 router.get('/records/:studentId', auth, academicController.getRecords);
 
-module.exports = router;
+// @route   DELETE api/academic/records/:id
+// @access  Private (Admin)
+router.delete('/records/:id', auth, role(['admin']), academicController.deleteRecord);
+
+// @route   DELETE api/academic/remark/:id
+// @access  Private (Advisor/Admin)
+router.delete('/remark/:id', auth, role(['advisor', 'admin']), academicController.deleteRemark);
+
+export default router;

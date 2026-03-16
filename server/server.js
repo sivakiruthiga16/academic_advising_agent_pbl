@@ -1,31 +1,127 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
+import express from "express";
+import mongoose from "mongoose";
+import cors from "cors";
+import dotenv from "dotenv";
+import bcrypt from "bcryptjs";
+import path from "path";
+import compression from "compression";
+import { fileURLToPath } from "url";
+import User from "./models/User.js";
 
-dotenv.config();
+// Import Routes
+import authRoutes from "./routes/authRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
+import studentRoutes from "./routes/studentRoutes.js";
+import advisorRoutes from "./routes/advisorRoutes.js";
+import appointmentRoutes from "./routes/appointmentRoutes.js";
+import academicRoutes from "./routes/academicRoutes.js";
 
+// Resolve __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env
+dotenv.config({ path: path.resolve(__dirname, ".env") });
+
+// Initialize Express
 const app = express();
-
-// Middleware
-app.use(express.json());
 app.use(cors());
+app.use(compression());
+app.use(express.json());
 
-// Database Connection
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/academic_advising_agent')
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log(err));
-mongoose.connection.once("open", () => {
-    console.log("Connected DB:", mongoose.connection.name);
+// Request Logger
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+  });
+  next();
 });
 
+// Check .env variables
+if (!process.env.MONGO_URI) {
+  console.error("Error: MONGO_URI not defined in .env");
+  process.exit(1);
+}
 
-// Routes (will be imported later)
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/admin', require('./routes/adminRoutes'));
-app.use('/api/advisor', require('./routes/advisorRoutes'));
-app.use('/api/student', require('./routes/studentRoutes'));
-app.use('/api/appointments', require('./routes/appointmentRoutes'));
+// Use PORT 6000 as requested/implied by .env
+const PORT = process.env.PORT || 6000;
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Connect to MongoDB
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(async () => {
+    console.log("MongoDB Connected Successfully");
+    console.log("Database name:", mongoose.connection.name);
+
+    // Create default admin if not exists
+    try {
+      const adminEmail = "sivakiruthigatsk@gmail.com";
+      const adminExists = await User.findOne({ email: adminEmail });
+
+      if (!adminExists) {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash("admin123", salt);
+
+        const newAdmin = new User({
+          name: "Admin",
+          email: adminEmail,
+          password: hashedPassword,
+          role: "admin",
+        });
+
+        await newAdmin.save();
+        console.log("Default admin created successfully");
+      } else {
+        // Force update password to ensure it's correct
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash("admin123", salt);
+        adminExists.password = hashedPassword;
+        adminExists.role = "admin"; // Ensure role is correct too
+        await adminExists.save();
+        console.log("Admin password reset to default successfully");
+      }
+    } catch (error) {
+      console.error("Error creating default admin:", error);
+    }
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err);
+    process.exit(1);
+  });
+
+// Register Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
+
+// Support both singular and plural for flexibility
+app.use("/api/student", studentRoutes);
+app.use("/api/students", studentRoutes);
+
+app.use("/api/advisor", advisorRoutes);
+app.use("/api/advisors", advisorRoutes);
+
+app.use("/api/appointment", appointmentRoutes);
+app.use("/api/appointments", appointmentRoutes);
+
+app.use("/api/academic", academicRoutes);
+app.use("/api/academics", academicRoutes);
+
+// Test route
+app.get("/", (req, res) => {
+  res.send("Server is running!");
+});
+
+// Start server with error handling
+const server = app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+server.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`Port ${PORT} is already in use. Please change PORT in .env or free the port.`);
+  } else {
+    console.error("Server error:", err);
+  }
+});
