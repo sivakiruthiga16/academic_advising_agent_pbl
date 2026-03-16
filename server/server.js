@@ -25,7 +25,26 @@ dotenv.config({ path: path.resolve(__dirname, ".env") });
 
 // Initialize Express
 const app = express();
-app.use(cors());
+
+// CORS configuration for production
+const allowedOrigins = [
+  "http://localhost:5173", // Primary local dev
+  "http://localhost:5174", // Alternative local dev
+  "http://localhost:5175", // Another alternative local dev
+  "https://academic-advising-agent.vercel.app", // Placeholder production frontend
+  "https://academic-advising-agent-pbl.vercel.app", // Actual production frontend
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+    console.log("Incoming Origin:", origin);
+    // Temporarily allow all during deployment debugging
+    return callback(null, true);
+  },
+  credentials: true
+}));
+
 app.use(compression());
 app.use(express.json());
 

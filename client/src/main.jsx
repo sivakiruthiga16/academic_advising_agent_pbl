@@ -8,7 +8,7 @@ import axios from 'axios';
 import ErrorBoundary from './components/ErrorBoundary';
 
 // Set global axios defaults for deployment
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+axios.defaults.baseURL = import.meta.env.VITE_API_URL || '';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>

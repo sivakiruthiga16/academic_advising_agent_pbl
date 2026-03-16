@@ -51,8 +51,9 @@ const Login = () => {
                 else if (role === 'student') navigate('/student');
             }
         } catch (err) {
-            console.error("Google Login Error:", err);
-            toast.error(err.response?.data?.msg || 'Google Login Failed');
+            console.error("Google Login Detailed Error:", err);
+            const errorMsg = err.response?.data?.msg || err.message || 'Google Login Failed';
+            toast.error(errorMsg);
         } finally {
             setLoading(false);
         }
