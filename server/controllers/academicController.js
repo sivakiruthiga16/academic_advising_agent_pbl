@@ -75,33 +75,73 @@ export const getRemarks = async (req, res) => {
 // @access  Private (Admin)
 export const upsertRecord = async (req, res) => {
     console.log("Incoming request:", req.method, req.originalUrl);
-    const { studentId, semester, subjects } = req.body;
+    const { studentId, semester, subjects, cgpa: providedCgpa } = req.body;
+
+    // Helper functions for calculation
+    const calculateGrade = (marks) => {
+        if (marks >= 80) return 'A+';
+        if (marks >= 70) return 'A';
+        if (marks >= 60) return 'B';
+        if (marks >= 50) return 'C';
+        if (marks >= 40) return 'D';
+        return 'F';
+    };
+
+    const subjectsWithGrades = subjects.map(s => ({
+        ...s,
+        grade: s.grade && s.grade !== 'N/A' ? s.grade : calculateGrade(s.marks)
+    }));
+
+    const semesterCgpa = providedCgpa || (subjects.reduce((acc, curr) => acc + parseFloat(curr.marks), 0) / (subjects.length || 1) / 10).toFixed(2);
 
     try {
         console.log("Updating/Upserting academic record for student:", studentId);
-        console.log("Using collection:", AcademicRecord.collection.name);
+        
+        // 1. Update separate AcademicRecord collection (Legacy/Backup support)
         let record = await AcademicRecord.findOne({ studentId, semester });
-
         if (record) {
-            record.subjects = subjects;
+            record.subjects = subjectsWithGrades;
+            record.cgpa = semesterCgpa;
             record.updatedAt = Date.now();
         } else {
             record = new AcademicRecord({
                 studentId,
                 semester,
-                subjects
+                subjects: subjectsWithGrades,
+                cgpa: semesterCgpa
             });
         }
-
         await record.save();
-        console.log("MongoDB operation completed successfully");
 
-        // Also update the main Student profile's CGPA for quick display
-        await Student.findOneAndUpdate(
-            { userId: studentId },
-            { cgpa: record.cgpa },
-            { new: true }
-        );
+        // 2. Update Student document's academicRecords array
+        const student = await Student.findOne({ userId: studentId });
+        if (!student) return res.status(404).json({ msg: 'Student not found' });
+
+        const recordIndex = student.academicRecords.findIndex(r => r.semester === semester);
+        const newRecordEntry = {
+            semester,
+            subjects: subjectsWithGrades,
+            cgpa: parseFloat(semesterCgpa),
+            updatedAt: Date.now()
+        };
+
+        if (recordIndex > -1) {
+            student.academicRecords[recordIndex] = newRecordEntry;
+        } else {
+            student.academicRecords.push(newRecordEntry);
+        }
+
+        // 3. Recalculate Overall CGPA
+        const allSemesterGpas = student.academicRecords.map(r => r.cgpa);
+        const overallCgpa = (allSemesterGpas.reduce((acc, curr) => acc + curr, 0) / allSemesterGpas.length).toFixed(2);
+
+        student.cgpa = overallCgpa;
+        // Keep main subjects for backward compatibility with existing components
+        student.subjects = subjectsWithGrades; 
+        student.updatedAt = Date.now();
+
+        await student.save();
+        console.log("MongoDB operation completed successfully");
 
         res.json(record);
     } catch (err) {
@@ -153,7 +193,7 @@ export const deleteRecord = async (req, res) => {
             });
         }
 
-        // Recalculate Overall CGPA
+        // 3. Recalculate and update Student document
         const allRecords = await AcademicRecord.find({ studentId });
         let totalGPA = 0;
         if (allRecords.length > 0) {
@@ -162,7 +202,10 @@ export const deleteRecord = async (req, res) => {
 
         await Student.findOneAndUpdate(
             { userId: studentId },
-            { cgpa: totalGPA.toFixed(2) }
+            { 
+                cgpa: totalGPA.toFixed(2),
+                $pull: { academicRecords: { semester: record.semester } }
+            }
         );
 
         res.json({

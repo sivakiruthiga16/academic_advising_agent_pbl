@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { BookOpen, Calendar, GraduationCap, Clock, MessageSquare, Loader2, Bell } from 'lucide-react';
+import AcademicPerformance from '../components/AcademicPerformance';
 
 const StudentDashboard = () => {
     const location = useLocation();
@@ -183,39 +184,13 @@ const StudentDashboard = () => {
             )}
 
             {activeTab === 'records' && (
-                <div className="bg-white rounded-xl shadow-sm p-6">
-                    <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><BookOpen className="h-5 w-5 text-indigo-600" /> Academic History</h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead>
-                                <tr className="border-b text-gray-500 text-sm">
-                                    <th className="pb-3">Semester</th>
-                                    <th className="pb-3">Subjects</th>
-                                    <th className="pb-3">Marks</th>
-                                    <th className="pb-3">Grades</th>
-                                    <th className="pb-3">GPA</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {records.map((record, idx) => (
-                                    <tr key={idx} className="border-b last:border-0 hover:bg-gray-50">
-                                        <td className="py-3 font-medium text-gray-900">{record.semester}</td>
-                                        <td className="py-3 text-gray-600">
-                                            {record.subjects.map(s => <div key={s._id}>{s.name}</div>)}
-                                        </td>
-                                        <td className="py-3 text-gray-600">
-                                            {record.subjects.map(s => <div key={s._id}>{s.marks}</div>)}
-                                        </td>
-                                        <td className="py-3 text-gray-600">
-                                            {record.subjects.map(s => <div key={s._id} className="font-medium">{s.grade}</div>)}
-                                        </td>
-                                        <td className="py-3 font-bold text-indigo-600">{record.cgpa}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        {records.length === 0 && <p className="text-center text-gray-500 mt-4">No academic records found.</p>}
-                    </div>
+                <div className="animate-in fade-in duration-500">
+                    <AcademicPerformance 
+                        studentData={profile} 
+                        allRecords={records} 
+                        remarks={remarks}
+                        suggestions={records.length > 0 ? "You are doing well! Keep maintaining your focus across all subjects." : null}
+                    />
                 </div>
             )}
 

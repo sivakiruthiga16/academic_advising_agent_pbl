@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -11,7 +12,7 @@ import {
     Filler
 } from 'chart.js';
 import { Bar, Line } from 'react-chartjs-2';
-import { BookOpen, Award, TrendingUp, AlertCircle, PieChart } from 'lucide-react';
+import { BookOpen, Award, TrendingUp, AlertCircle, PieChart, ChevronDown, Calendar, Activity } from 'lucide-react';
 
 ChartJS.register(
     CategoryScale,
@@ -25,14 +26,23 @@ ChartJS.register(
     Filler
 );
 
-const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
-    // Determine which subjects to use (AcademicRecord preferred)
-    const activeRecord = studentData?.academicRecord;
+const AcademicPerformance = ({ studentData, allRecords = [], suggestions, remarks }) => {
+    const [selectedSemester, setSelectedSemester] = useState('');
+
+    useEffect(() => {
+        if (allRecords.length > 0 && !selectedSemester) {
+            setSelectedSemester(allRecords[0].semester);
+        }
+    }, [allRecords]);
+
+    // Determine active record based on selection
+    const activeRecord = allRecords.find(r => r.semester === selectedSemester) || allRecords[0] || studentData?.academicRecord;
     const subjects = activeRecord?.subjects || studentData?.subjects || [];
-    const cgpa = activeRecord?.cgpa || studentData?.cgpa || 0;
+    const semesterCgpa = activeRecord?.cgpa || 0;
+    const overallCgpa = studentData?.cgpa || 0;
     const department = studentData?.department || 'Not Assigned';
 
-    if (subjects.length === 0) {
+    if (!activeRecord && subjects.length === 0) {
         return (
             <div className="bg-white p-12 rounded-2xl shadow-sm border border-gray-100 text-center animate-in fade-in duration-500">
                 <div className="bg-indigo-50 w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
@@ -46,7 +56,7 @@ const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
 
     // Chart Data Preparation
     const barData = {
-        labels: subjects.map(s => s.subjectName || s.name),
+        labels: subjects.map(s => s.name || s.subjectName),
         datasets: [
             {
                 label: 'Marks obtained',
@@ -88,36 +98,61 @@ const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Header with Semester Selector */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">Academic Overview</h2>
+                    <p className="text-gray-500 text-sm font-medium">Viewing performance data for {selectedSemester || 'Current Semester'}</p>
+                </div>
+                {allRecords.length > 1 && (
+                    <div className="relative w-full md:w-64">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Calendar className="h-4 w-4 text-indigo-500" />
+                        </div>
+                        <select
+                            value={selectedSemester}
+                            onChange={(e) => setSelectedSemester(e.target.value)}
+                            className="block w-full pl-10 pr-10 py-2.5 text-sm font-bold border-2 border-gray-100 rounded-xl appearance-none focus:outline-none focus:border-indigo-500 transition-all text-gray-700 bg-white cursor-pointer"
+                        >
+                            {allRecords.map((r, i) => (
+                                <option key={i} value={r.semester}>{r.semester}</option>
+                            ))}
+                        </select>
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <ChevronDown className="h-4 w-4 text-gray-400" />
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-xl shadow-indigo-100 relative overflow-hidden group">
                     <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
                     <div className="flex items-center justify-between mb-4 relative z-10">
-                        <p className="text-indigo-100 font-bold uppercase tracking-wider text-xs">Current CGPA</p>
+                        <p className="text-indigo-100 font-bold uppercase tracking-wider text-xs">Overall CGPA</p>
                         <Award className="h-6 w-6 text-yellow-300" />
                     </div>
-                    <div className="text-5xl font-black mb-1 relative z-10">{cgpa.toFixed(2)}</div>
+                    <div className="text-5xl font-black mb-1 relative z-10">{parseFloat(overallCgpa).toFixed(2)}</div>
                     <p className="text-indigo-100 text-sm font-medium opacity-80">{department} Department</p>
                 </div>
 
                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-gray-400 font-bold uppercase tracking-wider text-xs">Course Load</p>
-                        <div className="p-2 bg-blue-50 rounded-lg"><BookOpen className="h-5 w-5 text-blue-500" /></div>
+                        <p className="text-gray-400 font-bold uppercase tracking-wider text-xs">Semester GPA</p>
+                        <div className="p-2 bg-blue-50 rounded-lg"><TrendingUp className="h-5 w-5 text-blue-500" /></div>
                     </div>
-                    <div className="text-4xl font-black text-gray-900">{subjects.length}</div>
-                    <p className="text-gray-500 text-sm font-medium mt-1 italic">Active Subjects</p>
+                    <div className="text-4xl font-black text-gray-900">{parseFloat(semesterCgpa).toFixed(2)}</div>
+                    <p className="text-gray-500 text-sm font-medium mt-1 italic">{selectedSemester || 'Target Performance'}</p>
                 </div>
 
                 <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-all">
                     <div className="flex items-center justify-between mb-4">
-                        <p className="text-gray-400 font-bold uppercase tracking-wider text-xs">Status</p>
-                        <div className="p-2 bg-emerald-50 rounded-lg"><TrendingUp className="h-5 w-5 text-emerald-500" /></div>
+                        <p className="text-gray-400 font-bold uppercase tracking-wider text-xs">Course Load</p>
+                        <div className="p-2 bg-emerald-50 rounded-lg"><BookOpen className="h-5 w-5 text-emerald-500" /></div>
                     </div>
-                    <div className="text-3xl font-black text-gray-900">
-                        {cgpa >= 3.5 ? 'Excellent' : cgpa >= 3.0 ? 'Great' : cgpa >= 2.5 ? 'Good' : 'Needs Work'}
-                    </div>
-                    <p className="text-gray-500 text-sm font-medium mt-1">Academic Standing</p>
+                    <div className="text-4xl font-black text-gray-900">{subjects.length}</div>
+                    <p className="text-gray-500 text-sm font-medium mt-1">Subjects in {selectedSemester || 'current term'}</p>
                 </div>
             </div>
 
@@ -128,7 +163,7 @@ const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
                     <div className="flex justify-between items-center mb-8">
                         <div>
                             <h3 className="font-bold text-xl text-gray-800">Subject Performance</h3>
-                            <p className="text-gray-400 text-sm font-medium mt-1">Detailed marks breakdown per subject</p>
+                            <p className="text-gray-400 text-sm font-medium mt-1">Detailed marks breakdown for {selectedSemester}</p>
                         </div>
                         <div className="bg-gray-50 p-2 rounded-xl border border-gray-100">
                             <PieChart className="h-5 w-5 text-gray-400" />
@@ -164,7 +199,7 @@ const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
                         </div>
                     </div>
 
-                    {/* Advisor Remarks */}
+                    {/* Advisor Guidance */}
                     <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
                         <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800">
                             <Award className="h-6 w-6 text-indigo-600" />
@@ -182,7 +217,7 @@ const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
                                                 {new Date(r.createdAt).toLocaleDateString()}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-gray-700 leading-relaxed">{r.remark}</p>
+                                        <p className="text-sm text-gray-700 leading-relaxed">{r.remark || r.content}</p>
                                     </div>
                                 ))
                             ) : (
@@ -200,7 +235,7 @@ const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
                 <div className="p-6 border-b border-gray-50 flex items-center justify-between">
                     <h3 className="font-bold text-lg text-gray-800">Transcript Preview</h3>
                     <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                        {activeRecord?.semester || 'Current Semester'}
+                        {selectedSemester || 'Current Semester'}
                     </span>
                 </div>
                 <div className="overflow-x-auto">
@@ -218,7 +253,7 @@ const AcademicPerformance = ({ studentData, suggestions, remarks }) => {
                                 <tr key={idx} className="hover:bg-gray-50/50 transition-colors group">
                                     <td className="px-6 py-4">
                                         <p className="font-bold text-gray-800 group-hover:text-indigo-600 transition-colors uppercase text-sm tracking-tight">
-                                            {sub.subjectName || sub.name}
+                                            {sub.name || sub.subjectName}
                                         </p>
                                     </td>
                                     <td className="px-6 py-4">

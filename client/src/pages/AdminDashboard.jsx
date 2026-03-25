@@ -39,19 +39,30 @@ const AdminDashboard = () => {
     }, [recordData.studentId, recordData.semester, activeTab]);
 
     const fetchExistingRecord = async () => {
+        if (!recordData.studentId) return;
         try {
             const res = await axios.get(`/api/academic/records/${recordData.studentId}`);
             setStudentRecords(res.data);
-            if (res.data && res.data.length > 0) {
-                // Find record for current semester if possible, else just use the latest
-                const existing = res.data.find(r => r.semester === recordData.semester) || res.data[0];
-                if (existing) {
-                    setRecordData({
-                        studentId: recordData.studentId,
-                        semester: existing.semester,
-                        cgpa: existing.cgpa,
-                        subjects: existing.subjects.length > 0 ? existing.subjects : [{ name: '', marks: '' }]
-                    });
+            
+            // Only auto-populate if we find an EXACT match for the semester
+            // This prevents overwriting when the user is trying to add a NEW semester
+            const existing = res.data.find(r => r.semester.toLowerCase() === recordData.semester.toLowerCase());
+            
+            if (existing) {
+                setRecordData(prev => ({
+                    ...prev,
+                    cgpa: existing.cgpa,
+                    subjects: existing.subjects.length > 0 ? existing.subjects : [{ name: '', marks: '' }]
+                }));
+            } else {
+                // If no exact match and we have a semester typed, don't fallback to record[0]
+                // Just keep the semester name but clear subjects for a fresh entry
+                if (recordData.semester) {
+                    setRecordData(prev => ({
+                        ...prev,
+                        cgpa: '',
+                        subjects: [{ name: '', marks: '' }]
+                    }));
                 }
             }
         } catch (err) {
@@ -808,7 +819,8 @@ const AdminDashboard = () => {
                                                         const newSubjects = recordData.subjects.filter((_, i) => i !== index);
                                                         setRecordData({ ...recordData, subjects: newSubjects });
                                                     }}
-                                                    className="text-red-400 hover:text-red-600 p-1 transition-colors"
+                                                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    title="Remove Subject"
                                                 >
                                                     <XCircle className="h-5 w-5" />
                                                 </button>
@@ -859,13 +871,27 @@ const AdminDashboard = () => {
                                                     <td className="py-2.5 font-bold text-indigo-600">{record.cgpa.toFixed(2)}</td>
                                                     <td className="py-2.5 text-gray-600">{record.subjects?.length || 0}</td>
                                                     <td className="py-2.5 text-right">
-                                                        <button 
-                                                            onClick={() => handleDeleteRecord(record._id)}
-                                                            className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
-                                                            title="Delete Record"
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </button>
+                                                        <div className="flex justify-end gap-2">
+                                                            <button 
+                                                                onClick={() => setRecordData({
+                                                                    studentId: record.studentId,
+                                                                    semester: record.semester,
+                                                                    cgpa: record.cgpa,
+                                                                    subjects: record.subjects || [{ name: '', marks: '' }]
+                                                                })}
+                                                                className="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg transition-colors border border-transparent hover:border-indigo-100"
+                                                                title="Edit Record"
+                                                            >
+                                                                <Edit2 className="h-4 w-4" />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleDeleteRecord(record._id)}
+                                                                className="text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+                                                                title="Delete Record"
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             ))}
