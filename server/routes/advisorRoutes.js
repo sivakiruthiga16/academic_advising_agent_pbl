@@ -13,6 +13,7 @@ router.get('/students', advisorController.getAssignedStudents);
 router.post('/remarks', advisorController.addRemark);
 router.get('/appointments', advisorController.getAppointments);
 router.put('/appointments/:id', advisorController.updateAppointmentStatus);
+router.get('/student/:id', advisorController.getStudentById);
 router.get('/student/:studentId/records', advisorController.getStudentRecords);
 
 export default router;

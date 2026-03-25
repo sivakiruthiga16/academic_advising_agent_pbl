@@ -131,9 +131,24 @@ export const upsertRecord = async (req, res) => {
             student.academicRecords.push(newRecordEntry);
         }
 
-        // 3. Recalculate Overall CGPA
+        // 3. Update Student document's semesters array (New Primary View)
+        const semesterNum = parseInt(semester.replace(/\D/g, '')) || 0;
+        const semesterEntry = {
+            semesterNumber: semesterNum,
+            gpa: parseFloat(semesterCgpa),
+            subjects: subjectsWithGrades
+        };
+
+        const semesterIndex = student.semesters.findIndex(s => s.semesterNumber === semesterNum);
+        if (semesterIndex > -1) {
+            student.semesters[semesterIndex] = semesterEntry;
+        } else {
+            student.semesters.push(semesterEntry);
+        }
+
+        // 4. Recalculate Overall CGPA
         const allSemesterGpas = student.academicRecords.map(r => r.cgpa);
-        const overallCgpa = (allSemesterGpas.reduce((acc, curr) => acc + curr, 0) / allSemesterGpas.length).toFixed(2);
+        const overallCgpa = (allSemesterGpas.reduce((acc, curr) => acc + curr, 0) / (allSemesterGpas.length || 1)).toFixed(2);
 
         student.cgpa = overallCgpa;
         // Keep main subjects for backward compatibility with existing components

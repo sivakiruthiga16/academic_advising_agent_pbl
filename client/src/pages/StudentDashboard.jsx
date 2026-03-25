@@ -189,7 +189,6 @@ const StudentDashboard = () => {
                         studentData={profile} 
                         allRecords={records} 
                         remarks={remarks}
-                        suggestions={records.length > 0 ? "You are doing well! Keep maintaining your focus across all subjects." : null}
                     />
                 </div>
             )}

@@ -12,6 +12,8 @@ const AdvisorDashboard = () => {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [notificationCount, setNotificationCount] = useState(0);
+    const [selectedStudent, setSelectedStudent] = useState(null);
+    const [studentProfileLoading, setStudentProfileLoading] = useState(false);
 
     const [remarkData, setRemarkData] = useState({ studentId: '', content: '' });
 
@@ -34,24 +36,7 @@ const AdvisorDashboard = () => {
     const checkNotifications = async () => {
         if (!activeTab.includes('appointments')) { // Only poll if not currently viewing
             try {
-                // Fetch using specific route as requested
-                // We use a dummy ID 'me' or valid ID if available, but controller relies on token. 
-                // However, to strictly follow requirement: GET /notifications/advisor/:advisorId
-                // We need the advisor's ID. 
-                // We don't have advisor ID in state easily without fetching profile.
-                // But wait, the user is the advisor.
-                // Let's assume we can use the generic one OR we need to fetch profile first.
-                // Actually, let's stick to the generic one which is safer, OR if I MUST use the param, I need the ID.
-                // The prompt says: "Fetch from backend: GET /api/appointments/notifications/advisor/:advisorId"
-                // I will use a placeholder 'current' or try to get ID from somewhere?
-                // The dashboard doesn't have 'user.id' easily accessible without AuthContext.
-                // Let's assume the existing generic route is mapped to the specific logic I just wrote.
-                // Wait, I updated routes to allow specific paths.
-                // To be safe and compliant, I should use the AuthContext to get the ID.
-                // I need to import useAuth.
                 const res = await axios.get('/api/appointments/notifications');
-                // Reverting to generic because getting ID requires refactoring to useAuth which might break "Do NOT refactor unrelated logic".
-                // The controller handles it.
                 setNotificationCount(res.data.count);
             } catch (err) {
                 console.error('Failed to fetch notifications');
@@ -73,15 +58,13 @@ const AdvisorDashboard = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            // Progressive Loading: Load critical students list first
             const studentsRes = await axios.get('/api/advisor/students');
             setStudents(studentsRes.data);
-            setLoading(false); // Show UI as soon as students are loaded
+            setLoading(false);
 
-            // Load appointments in background
             const appointmentsRes = await axios.get('/api/advisor/appointments');
             setAppointments(appointmentsRes.data);
-            if (activeTab === 'appointments') checkNotifications(); // Sync if on tab
+            if (activeTab === 'appointments') checkNotifications();
         } catch (err) {
             console.error(err);
             toast.error('Data unavailable. Try again later.');
@@ -92,12 +75,12 @@ const AdvisorDashboard = () => {
 
     const handleTabChange = (tab) => {
         setActiveTab(tab);
+        setSelectedStudent(null);
         if (tab === 'students') navigate('/advisor/students');
         else if (tab === 'appointments') {
             navigate('/advisor/appointments');
             markNotificationsAsRead();
         }
-
     };
 
     const handleAddRemark = async (e) => {
@@ -118,6 +101,19 @@ const AdvisorDashboard = () => {
             fetchData();
         } catch (err) {
             toast.error('Failed to update status');
+        }
+    };
+
+    const viewStudentProfile = async (studentId) => {
+        setStudentProfileLoading(true);
+        try {
+            const res = await axios.get(`/api/advisor/student/${studentId}`);
+            setSelectedStudent(res.data);
+        } catch (err) {
+            toast.error('Failed to load student profile');
+            console.error(err);
+        } finally {
+            setStudentProfileLoading(false);
         }
     };
 
@@ -155,7 +151,7 @@ const AdvisorDashboard = () => {
                 </div>
             </div>
 
-            {activeTab === 'students' && (
+            {activeTab === 'students' && !selectedStudent && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     <div className="lg:col-span-2 bg-white rounded-xl shadow-sm p-6">
                         <h3 className="font-bold text-lg mb-4">Assigned Students</h3>
@@ -164,18 +160,25 @@ const AdvisorDashboard = () => {
                                 <thead>
                                     <tr className="border-b text-gray-500 text-sm">
                                         <th className="pb-3">Name</th>
-                                        <th className="pb-3">Email</th>
                                         <th className="pb-3">Department</th>
                                         <th className="pb-3">CGPA</th>
+                                        <th className="pb-3">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {students.map(student => (
                                         <tr key={student._id} className="border-b last:border-0 hover:bg-gray-50">
                                             <td className="py-3 font-medium">{student.userId?.name}</td>
-                                            <td className="py-3 text-gray-600">{student.userId?.email}</td>
                                             <td className="py-3 text-gray-600">{student.department}</td>
                                             <td className="py-3 font-bold">{student.cgpa || '0.00'}</td>
+                                            <td className="py-3">
+                                                <button 
+                                                    onClick={() => viewStudentProfile(student._id)} 
+                                                    className="text-xs bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-3 py-1 rounded-md font-bold transition-colors"
+                                                >
+                                                    View Full Data
+                                                </button>
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -211,6 +214,88 @@ const AdvisorDashboard = () => {
                             </div>
                             <button type="submit" className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700">Add Remark</button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'students' && selectedStudent && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <button 
+                        onClick={() => setSelectedStudent(null)} 
+                        className="mb-4 text-indigo-600 font-bold flex items-center gap-2 hover:underline"
+                    >
+                        &larr; Back to Students
+                    </button>
+                    
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
+                        <h2 className="text-2xl font-black text-gray-800 mb-2">Student Academic History</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Name</p>
+                                <p className="text-lg font-black text-indigo-900">{selectedStudent.name}</p>
+                            </div>
+                            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Department</p>
+                                <p className="text-lg font-black text-indigo-900">{selectedStudent.department}</p>
+                            </div>
+                            <div className="bg-indigo-600 p-4 rounded-xl text-white shadow-lg shadow-indigo-100">
+                                <p className="text-indigo-100 text-xs font-bold uppercase tracking-wider mb-1">Overall CGPA</p>
+                                <p className="text-2xl font-black">{parseFloat(selectedStudent.cgpa).toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-10">
+                        {selectedStudent.semesters && selectedStudent.semesters.length > 0 ? (
+                            selectedStudent.semesters.map((sem, idx) => (
+                                <div key={idx} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                                    <div className="bg-gray-50 p-4 px-6 border-b border-gray-100 flex justify-between items-center">
+                                        <h3 className="font-bold text-gray-800 text-xl">Semester {sem.semesterNumber}</h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-500 text-sm font-medium">GPA:</span>
+                                            <span className="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full font-black text-sm">
+                                                {parseFloat(sem.gpa).toFixed(2)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="p-6">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full text-left">
+                                                <thead>
+                                                    <tr className="text-gray-400 text-xs font-black uppercase tracking-widest border-b">
+                                                        <th className="pb-3 pl-2">Subject</th>
+                                                        <th className="pb-3 text-center">Marks</th>
+                                                        <th className="pb-3 text-right pr-2">Grade</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-50">
+                                                    {sem.subjects.map((sub, sIdx) => (
+                                                        <tr key={sIdx} className="hover:bg-gray-50/50 transition-colors">
+                                                            <td className="py-4 font-bold text-gray-700 pl-2">{sub.name}</td>
+                                                            <td className="py-4 text-center font-black text-gray-900">{sub.marks}</td>
+                                                            <td className="py-4 text-right pr-2">
+                                                                <span className={`px-3 py-1 rounded-full text-xs font-black ${
+                                                                    sub.grade.startsWith('A') ? 'bg-emerald-100 text-emerald-700' :
+                                                                    sub.grade.startsWith('B') ? 'bg-blue-100 text-blue-700' :
+                                                                    'bg-amber-100 text-amber-700'
+                                                                }`}>
+                                                                    {sub.grade}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-center p-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                                <p className="text-gray-400 font-bold text-lg">No Semester Data Available</p>
+                                <p className="text-gray-500 text-sm mt-1">This student's academic history has not been updated yet.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

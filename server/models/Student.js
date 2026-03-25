@@ -28,6 +28,19 @@ const StudentSchema = new mongoose.Schema({
         min: 0,
         max: 10
     },
+    semesters: [
+        {
+            semesterNumber: { type: Number, required: true },
+            gpa: { type: Number, default: 0 },
+            subjects: [
+                {
+                    name: { type: String, required: true },
+                    marks: { type: Number, required: true },
+                    grade: { type: String, default: 'N/A' }
+                }
+            ]
+        }
+    ],
     academicRecords: [
         {
             semester: { type: String, required: true },

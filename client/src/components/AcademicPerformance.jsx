@@ -156,7 +156,7 @@ const AcademicPerformance = ({ studentData, allRecords = [], suggestions, remark
                 </div>
             </div>
 
-            {/* Performance Analysis & AI Suggestions */}
+            {/* Performance Analysis & Advisor Guidance */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Chart Section */}
                 <div className="lg:col-span-2 bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
@@ -174,58 +174,32 @@ const AcademicPerformance = ({ studentData, allRecords = [], suggestions, remark
                     </div>
                 </div>
 
-                {/* AI Suggestions Side Panel */}
-                <div className="flex flex-col gap-6">
-                    <div className="bg-gray-900 p-8 rounded-2xl text-white shadow-xl shadow-gray-200 relative overflow-hidden flex-grow">
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <Activity className="h-16 w-16" />
-                        </div>
-                        <h3 className="font-bold text-xl mb-4 flex items-center gap-2">
-                            <AlertCircle className="h-6 w-6 text-indigo-400" />
-                            AI Suggestions
-                        </h3>
-                        <div className="space-y-4">
-                            {suggestions ? (
-                                <div className="p-4 bg-white/5 rounded-xl border border-white/10 backdrop-blur-sm">
-                                    <p className="text-gray-300 text-sm leading-relaxed italic">
-                                        "{suggestions}"
-                                    </p>
-                                </div>
-                            ) : (
-                                <p className="text-gray-400 text-sm text-center py-8">
-                                    Keep progressing to receive personalized improvement strategies.
-                                </p>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Advisor Guidance */}
-                    <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-                        <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800">
-                            <Award className="h-6 w-6 text-indigo-600" />
-                            Advisor Guidance
-                        </h3>
-                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {remarks && remarks.length > 0 ? (
-                                remarks.map((r, i) => (
-                                    <div key={i} className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl relative group">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
-                                                {r.advisorId?.name || 'Advisor'}
-                                            </span>
-                                            <span className="text-[10px] font-bold text-gray-400">
-                                                {new Date(r.createdAt).toLocaleDateString()}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-700 leading-relaxed">{r.remark || r.content}</p>
+                {/* Advisor Guidance */}
+                <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
+                    <h3 className="font-bold text-xl mb-4 flex items-center gap-2 text-gray-800">
+                        <Award className="h-6 w-6 text-indigo-600" />
+                        Advisor Guidance
+                    </h3>
+                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        {remarks && remarks.length > 0 ? (
+                            remarks.map((r, i) => (
+                                <div key={i} className="p-4 bg-indigo-50 border border-indigo-100 rounded-xl relative group">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                                            {r.advisorId?.name || 'Advisor'}
+                                        </span>
+                                        <span className="text-[10px] font-bold text-gray-400">
+                                            {new Date(r.createdAt).toLocaleDateString()}
+                                        </span>
                                     </div>
-                                ))
-                            ) : (
-                                <p className="text-gray-400 text-sm text-center py-8">
-                                    No guidance remarks from advisor yet.
-                                </p>
-                            )}
-                        </div>
+                                    <p className="text-sm text-gray-700 leading-relaxed">{r.remark || r.content}</p>
+                                </div>
+                            ))
+                        ) : (
+                            <p className="text-gray-400 text-sm text-center py-8">
+                                No guidance remarks from advisor yet.
+                            </p>
+                        )}
                     </div>
                 </div>
             </div>

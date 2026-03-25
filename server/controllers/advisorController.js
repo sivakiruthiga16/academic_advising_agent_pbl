@@ -124,3 +124,36 @@ export const getStudentRecords = async (req, res) => {
         res.status(500).send('Server Error');
     }
 };
+
+// @desc    Get full student data (basic info + cgpa + semesters)
+// @route   GET /api/advisor/student/:id
+// @access  Private/Advisor
+export const getStudentById = async (req, res) => {
+    try {
+        // Find student by ID (this ID is the student document ID or the user ID depending on context)
+        // Based on the route, let's assume it's the Student document _id or userId. 
+        // In this system, advisor/students returns a list of Student objects.
+        // Let's check both cases to be safe or use the one that matches the Frontend call.
+        
+        const student = await Student.findOne({ 
+            _id: req.params.id, 
+            advisorId: req.user.user.id 
+        }).populate('userId', 'name email department');
+        
+        if (!student) {
+            return res.status(404).json({ msg: 'Student not found or not assigned to this advisor' });
+        }
+
+        res.json({
+            _id: student._id,
+            name: student.userId.name,
+            email: student.userId.email,
+            department: student.department || student.userId.department,
+            cgpa: student.cgpa,
+            semesters: student.semesters || []
+        });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+};

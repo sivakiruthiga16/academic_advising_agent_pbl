@@ -181,8 +181,25 @@ export const addAcademicRecord = async (req, res) => {
         if (studentProfile) {
             studentProfile.cgpa = totalGPA.toFixed(2);
 
+            // Sync to BOTH subjects (for backward compatibility) and semesters (for detailed view)
+            const semesterNum = parseInt(semester.replace(/\D/g, '')) || 0;
+            const semesterEntry = {
+                semesterNumber: semesterNum,
+                gpa: parseFloat(semesterGPA.toFixed(2)),
+                subjects: subjects.map(s => ({
+                    ...s,
+                    grade: s.grade || 'N/A' // Ensure grade is present
+                }))
+            };
+
+            const semesterIndex = studentProfile.semesters.findIndex(s => s.semesterNumber === semesterNum);
+            if (semesterIndex > -1) {
+                studentProfile.semesters[semesterIndex] = semesterEntry;
+            } else {
+                studentProfile.semesters.push(semesterEntry);
+            }
+
             // Sync subjects to profile for simple viewing if needed
-            // Only add subjects that aren't already there (simplified)
             const currentSubNames = studentProfile.subjects.map(s => s.name);
             subjects.forEach(sub => {
                 if (!currentSubNames.includes(sub.name)) {
