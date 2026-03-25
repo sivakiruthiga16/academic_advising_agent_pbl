@@ -10,6 +10,9 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        // Global axios configuration
+        axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+        
         const checkAuth = async () => {
             const token = localStorage.getItem('token');
             if (token) {
@@ -18,12 +21,11 @@ export const AuthProvider = ({ children }) => {
                     axios.defaults.headers.common['x-auth-token'] = token;
 
                     // Verify token and get user details
-                    const res = await axios.get('/api/auth/me');
+                    const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/auth/me`);
 
                     if (res.data) {
                         setUser({ ...res.data, token });
                     } else {
-                        // Handle case where server returns 200 but no data (should not happen with new backend fix, but good for safety)
                         throw new Error('User data not found');
                     }
                 } catch (err) {
@@ -41,35 +43,47 @@ export const AuthProvider = ({ children }) => {
     }, []);
 
     const login = async (email, password) => {
-        const res = await axios.post('/api/auth/login', { email, password });
-        const { token, role } = res.data;
+        try {
+            const res = await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/auth/login`, { email, password });
+            const { token, role } = res.data;
 
-        localStorage.setItem('token', token);
-        localStorage.setItem('role', role); // Backup
-        axios.defaults.headers.common['x-auth-token'] = token;
+            localStorage.setItem('token', token);
+            localStorage.setItem('role', role); 
+            axios.defaults.headers.common['x-auth-token'] = token;
 
-        // We can fetch full profile here or just trust the login response
-        // Login response returns { token, role, msg }
-        // Let's set basic user info
-        setUser({ role, token });
-        return role;
+            setUser({ role, token });
+            return role;
+        } catch (err) {
+            console.error('Login error:', err);
+            throw err;
+        }
     };
 
     const register = async (formData) => {
-        const res = await axios.post('/api/auth/register', formData);
-        return res.data;
+        try {
+            const res = await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/auth/register`, formData);
+            return res.data;
+        } catch (err) {
+            console.error('Registration error:', err);
+            throw err;
+        }
     };
 
     const googleLogin = async (token) => {
-        const res = await axios.post('/api/auth/google', { credential: token });
-        const { token: jwtToken, role } = res.data;
+        try {
+            const res = await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/auth/google`, { credential: token });
+            const { token: jwtToken, role } = res.data;
 
-        localStorage.setItem('token', jwtToken);
-        localStorage.setItem('role', role);
-        axios.defaults.headers.common['x-auth-token'] = jwtToken;
+            localStorage.setItem('token', jwtToken);
+            localStorage.setItem('role', role);
+            axios.defaults.headers.common['x-auth-token'] = jwtToken;
 
-        setUser({ role, token: jwtToken });
-        return role;
+            setUser({ role, token: jwtToken });
+            return role;
+        } catch (err) {
+            console.error('Google login error:', err);
+            throw err;
+        }
     };
 
     const logout = useCallback(() => {

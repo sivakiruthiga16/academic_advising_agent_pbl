@@ -10,12 +10,12 @@ const AppointmentList = () => {
     useEffect(() => {
         const fetchAppointments = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/appointments', {
+                const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/appointments`, {
                     headers: { 'x-auth-token': localStorage.getItem('token') }
                 });
                 setAppointments(res.data);
             } catch (err) {
-                console.error('Failed to fetch appointments');
+                console.error('Failed to fetch appointments', err);
             } finally {
                 setLoading(false);
             }

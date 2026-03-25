@@ -17,12 +17,12 @@ const AppointmentForm = ({ advisorId, onAppointmentAdded }) => {
         if (!advisorId) {
             const fetchAdvisors = async () => {
                 try {
-                    const res = await axios.get('http://localhost:5000/api/auth/advisors', {
+                    const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/auth/advisors`, {
                         headers: { 'x-auth-token': localStorage.getItem('token') }
                     });
                     setAdvisors(res.data);
                 } catch (err) {
-                    console.error(err);
+                    console.error('Fetch advisors error:', err);
                 }
             };
             fetchAdvisors();
@@ -37,7 +37,7 @@ const AppointmentForm = ({ advisorId, onAppointmentAdded }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await axios.post('http://localhost:5000/api/appointments', formData, {
+            await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/appointments`, formData, {
                 headers: { 'x-auth-token': localStorage.getItem('token') }
             });
             toast.success('Consultation request sent!');

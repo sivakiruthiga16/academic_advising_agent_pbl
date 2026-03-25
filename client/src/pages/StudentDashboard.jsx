@@ -36,7 +36,7 @@ const StudentDashboard = () => {
 
     const checkNotifications = async () => {
         try {
-            const res = await axios.get('/api/appointments/notifications');
+            const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/appointments/notifications`);
             if (res.data.count > notificationCount) {
                 toast('Appointment Status Updated!', {
                     icon: '🔔',
@@ -49,18 +49,18 @@ const StudentDashboard = () => {
             }
             setNotificationCount(res.data.count);
         } catch (err) {
-            console.error('Failed to fetch notifications');
+            console.error('Failed to fetch notifications', err);
         }
     };
 
     const markNotificationsAsRead = async () => {
         try {
             if (notificationCount > 0) {
-                await axios.put('/api/appointments/notifications/mark-viewed');
+                await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/appointments/notifications/mark-viewed`);
                 setNotificationCount(0);
             }
         } catch (err) {
-            console.error('Failed to mark notifications');
+            console.error('Failed to mark notifications', err);
         }
     };
 
@@ -78,22 +78,22 @@ const StudentDashboard = () => {
         setLoading(true);
         try {
             // Progressive Loading: Load basic profile first
-            const profileRes = await axios.get('/api/student/profile');
+            const profileRes = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/student/profile`);
             setProfile(profileRes.data);
             setLoading(false); // Show UI as soon as profile is loaded
 
             // Load secondary data in background
             const [recordsRes, remarksRes, appointmentsRes] = await Promise.all([
-                axios.get('/api/student/records'),
-                axios.get('/api/student/remarks'),
-                axios.get('/api/student/appointments')
+                axios.get(`${import.meta.env.VITE_API_URL || ''}/api/student/records`),
+                axios.get(`${import.meta.env.VITE_API_URL || ''}/api/student/remarks`),
+                axios.get(`${import.meta.env.VITE_API_URL || ''}/api/student/appointments`)
             ]);
             setRecords(recordsRes.data);
             setRemarks(remarksRes.data);
             setAppointments(appointmentsRes.data);
             if (activeTab === 'appointments') checkNotifications();
         } catch (err) {
-            console.error(err);
+            console.error('Data fetch error:', err);
             toast.error('Data unavailable. Try again later.');
         } finally {
             setLoading(false);
@@ -103,7 +103,7 @@ const StudentDashboard = () => {
     const handleBookAppointment = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('/api/student/appointments', {
+            await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/student/appointments`, {
                 ...appointmentData,
                 advisorId: profile.advisorId._id
             });
@@ -111,6 +111,7 @@ const StudentDashboard = () => {
             setAppointmentData({ advisorId: '', date: '', time: '', reason: '' });
             fetchData();
         } catch (err) {
+            console.error('Book appointment error:', err);
             toast.error(err.response?.data?.msg || 'Failed to book appointment');
         }
     };

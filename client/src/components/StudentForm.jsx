@@ -29,14 +29,15 @@ const StudentForm = ({ onStudentAdded, onCancel, initialData }) => {
         setLoading(true);
         try {
             if (initialData) {
-                await axios.put(`/api/admin/student/${initialData._id}`, formData);
+                await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/admin/student/${initialData._id}`, formData);
                 toast.success('Student updated successfully');
             } else {
-                await axios.post('/api/admin/create-student', formData);
+                await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/admin/create-student`, formData);
                 toast.success('Student added successfully');
             }
             onStudentAdded();
         } catch (err) {
+            console.error('Student form error:', err);
             toast.error(err.response?.data?.msg || `Failed to ${initialData ? 'update' : 'add'} student`);
         } finally {
             setLoading(false);

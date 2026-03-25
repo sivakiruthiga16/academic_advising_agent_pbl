@@ -36,12 +36,7 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    console.log("Incoming Origin:", origin);
-    // Temporarily allow all during deployment debugging
-    return callback(null, true);
-  },
+  origin: "*",
   credentials: true
 }));
 

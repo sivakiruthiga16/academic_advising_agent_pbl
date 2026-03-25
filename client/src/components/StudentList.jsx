@@ -12,12 +12,12 @@ const StudentList = ({ refreshTrigger, onManageRecord, onAssignAdvisor, onStuden
     useEffect(() => {
         const fetchStudents = async () => {
             try {
-                const res = await axios.get('http://localhost:5000/api/admin/students', {
+                const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/admin/students`, {
                     headers: { 'x-auth-token': localStorage.getItem('token') }
                 });
                 setStudents(res.data);
             } catch (err) {
-                console.error('Failed to fetch students');
+                console.error('Failed to fetch students', err);
             } finally {
                 setLoading(false);
             }
@@ -28,12 +28,12 @@ const StudentList = ({ refreshTrigger, onManageRecord, onAssignAdvisor, onStuden
     const handleDelete = async (id) => {
         if (!window.confirm('Are you sure you want to remove this student?')) return;
         try {
-            await axios.delete(`http://localhost:5000/api/admin/user/${id}`, {
+            await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/admin/user/${id}`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') }
             });
             setStudents(students.filter(s => s._id !== id));
         } catch (err) {
-            console.error('Failed to delete student');
+            console.error('Failed to delete student', err);
         }
     };
 

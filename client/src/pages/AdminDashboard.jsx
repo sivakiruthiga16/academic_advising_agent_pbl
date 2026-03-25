@@ -41,7 +41,7 @@ const AdminDashboard = () => {
     const fetchExistingRecord = async () => {
         if (!recordData.studentId) return;
         try {
-            const res = await axios.get(`/api/academic/records/${recordData.studentId}`);
+            const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/academic/records/${recordData.studentId}`);
             setStudentRecords(res.data);
             
             // Only auto-populate if we find an EXACT match for the semester
@@ -66,16 +66,16 @@ const AdminDashboard = () => {
                 }
             }
         } catch (err) {
-            console.error("Failed to fetch existing records");
+            console.error("Failed to fetch existing records", err);
         }
     };
 
     const fetchStudentRemarks = async () => {
         try {
-            const res = await axios.get(`/api/academic/remarks/${recordData.studentId}`);
+            const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/academic/remarks/${recordData.studentId}`);
             setRemarks(res.data);
         } catch (err) {
-            console.error("Failed to fetch remarks");
+            console.error("Failed to fetch remarks", err);
         }
     };
 
@@ -105,19 +105,19 @@ const AdminDashboard = () => {
         
         // Progressive Loading: Load critical data first
         try {
-            const studentRes = await axios.get('/api/admin/students');
+            const studentRes = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/admin/students`);
             setStudents(studentRes.data);
             if (isInitial) setLoading(false); // Show UI as soon as students are loaded
 
             // Load remaining data in background
             const [advisorsRes, appointmentsRes] = await Promise.all([
-                axios.get('/api/admin/advisors'),
-                axios.get('/api/appointments')
+                axios.get(`${import.meta.env.VITE_API_URL || ''}/api/admin/advisors`),
+                axios.get(`${import.meta.env.VITE_API_URL || ''}/api/appointments`)
             ]);
             setAdvisors(advisorsRes.data);
             setAppointments(appointmentsRes.data);
         } catch (err) {
-            console.error(err);
+            console.error('Data fetch error:', err);
             toast.error('Data unavailable. Try again later.');
         } finally {
             setLoading(false);
@@ -128,13 +128,14 @@ const AdminDashboard = () => {
 
     const handleUpdateAppointmentStatus = async (id, status) => {
         try {
-            const res = await axios.put(`/api/appointments/${id}`, { status });
+            const res = await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/appointments/${id}`, { status });
             setAppointments(appointments.map(app => app._id === id ? res.data : app));
             if (viewingAppointment && viewingAppointment._id === id) {
                 setViewingAppointment(res.data);
             }
             toast.success(`Appointment ${status}`);
         } catch (err) {
+            console.error('Update appointment error:', err);
             toast.error('Failed to update status');
         }
     };
@@ -143,7 +144,7 @@ const AdminDashboard = () => {
         if (!window.confirm('Are you sure you want to delete this appointment?')) return;
         try {
             console.log("Deleting appointment ID:", id);
-            const response = await axios.delete(`/api/appointments/${id}`);
+            const response = await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/appointments/${id}`);
             if (response.data && response.data.success) {
                 setAppointments(appointments.filter(app => app._id !== id));
                 toast.success('Appointment deleted successfully');
@@ -156,7 +157,7 @@ const AdminDashboard = () => {
                 await loadUsers();
             }
         } catch (err) {
-            console.error(err);
+            console.error('Delete appointment error:', err);
             toast.error('Failed to delete appointment');
         }
     };
@@ -164,11 +165,12 @@ const AdminDashboard = () => {
     const handleAssignAdvisor = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('/api/admin/assign-advisor', assignmentData);
+            await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/admin/assign-advisor`, assignmentData);
             toast.success('Advisor assigned successfully');
             await loadUsers();
             setAssignmentData({ studentId: '', advisorId: '' });
         } catch (err) {
+            console.error('Assign advisor error:', err);
             toast.error(err.response?.data?.msg || 'Failed to assign advisor');
         }
     };
@@ -176,12 +178,13 @@ const AdminDashboard = () => {
     const handleAddRecord = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('/api/admin/academic-records', recordData);
+            await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/admin/academic-records`, recordData);
             toast.success('Academic record added');
             setRecordData({ studentId: '', semester: '', subjects: [{ name: '', marks: '' }] });
             fetchExistingRecord();
             loadUsers(); // Refresh to sync CGPA if needed
         } catch (err) {
+            console.error('Add record error:', err);
             toast.error(err.response?.data?.msg || 'Failed to add record');
         }
     };
@@ -202,7 +205,7 @@ const AdminDashboard = () => {
         if (createStudentData.password.length < 6) return toast.error('Password must be at least 6 chars');
         try {
             console.log("Sending student data:", createStudentData);
-            const response = await axios.post('/api/admin/create-student', createStudentData);
+            const response = await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/admin/create-student`, createStudentData);
             console.log("Create student response:", response.data);
             
             if (response.data && response.data.success) {
@@ -223,7 +226,7 @@ const AdminDashboard = () => {
         if (createAdvisorData.password.length < 6) return toast.error('Password must be at least 6 chars');
         try {
             console.log("Sending advisor data:", createAdvisorData);
-            const response = await axios.post('/api/admin/create-advisor', createAdvisorData);
+            const response = await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/admin/create-advisor`, createAdvisorData);
             console.log("Create advisor response:", response.data);
             
             if (response.data && response.data.success) {
@@ -242,11 +245,12 @@ const AdminDashboard = () => {
     const handleUpdateAdvisor = async (e) => {
         e.preventDefault();
         try {
-            await axios.put(`/api/admin/advisor/${editingAdvisor._id}`, advisorEditData);
+            await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/admin/advisor/${editingAdvisor._id}`, advisorEditData);
             toast.success('Advisor updated successfully');
             setEditingAdvisor(null);
             await loadUsers();
         } catch (err) {
+            console.error('Update advisor error:', err);
             toast.error(err.response?.data?.msg || 'Failed to update advisor');
         }
     };
@@ -255,7 +259,7 @@ const AdminDashboard = () => {
         if (!window.confirm(`Are you sure you want to delete this ${role}?`)) return;
         try {
             console.log(`Deleting ${role} ID:`, id);
-            const response = await axios.delete(`/api/admin/user/${id}`);
+            const response = await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/admin/user/${id}`);
             if (response.data && response.data.success) {
                 toast.success('User deleted successfully');
                 await loadUsers();
@@ -264,7 +268,7 @@ const AdminDashboard = () => {
                 await loadUsers();
             }
         } catch (err) {
-            console.error(err);
+            console.error('Delete user error:', err);
             toast.error('Failed to delete user');
         }
     };
@@ -273,7 +277,7 @@ const AdminDashboard = () => {
         if (!window.confirm('Are you sure you want to delete this record?')) return;
         try {
             console.log("Deleting academic record ID:", id);
-            const response = await axios.delete(`/api/academic/records/${id}`);
+            const response = await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/academic/records/${id}`);
             if (response.data && response.data.success) {
                 toast.success('Record deleted successfully');
                 fetchExistingRecord();
@@ -284,7 +288,7 @@ const AdminDashboard = () => {
                 await loadUsers();
             }
         } catch (err) {
-            console.error(err);
+            console.error('Delete record error:', err);
             toast.error('Failed to delete record');
         }
     };
@@ -293,7 +297,7 @@ const AdminDashboard = () => {
         if (!window.confirm('Are you sure you want to delete this remark?')) return;
         try {
             console.log("Deleting remark ID:", id);
-            const response = await axios.delete(`/api/academic/remark/${id}`);
+            const response = await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/academic/remark/${id}`);
             if (response.data && response.data.success) {
                 toast.success('Remark deleted successfully');
                 fetchStudentRemarks();
@@ -302,7 +306,7 @@ const AdminDashboard = () => {
                 fetchStudentRemarks();
             }
         } catch (err) {
-            console.error(err);
+            console.error('Delete remark error:', err);
             toast.error('Failed to delete remark');
         }
     };

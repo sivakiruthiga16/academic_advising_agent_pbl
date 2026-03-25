@@ -36,10 +36,10 @@ const AdvisorDashboard = () => {
     const checkNotifications = async () => {
         if (!activeTab.includes('appointments')) { // Only poll if not currently viewing
             try {
-                const res = await axios.get('/api/appointments/notifications');
+                const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/appointments/notifications`);
                 setNotificationCount(res.data.count);
             } catch (err) {
-                console.error('Failed to fetch notifications');
+                console.error('Failed to fetch notifications', err);
             }
         }
     };
@@ -47,26 +47,26 @@ const AdvisorDashboard = () => {
     const markNotificationsAsRead = async () => {
         try {
             if (notificationCount > 0) {
-                await axios.put('/api/appointments/notifications/mark-viewed');
+                await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/appointments/notifications/mark-viewed`);
                 setNotificationCount(0);
             }
         } catch (err) {
-            console.error('Failed to mark notifications');
+            console.error('Failed to mark notifications', err);
         }
     };
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const studentsRes = await axios.get('/api/advisor/students');
+            const studentsRes = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/advisor/students`);
             setStudents(studentsRes.data);
             setLoading(false);
 
-            const appointmentsRes = await axios.get('/api/advisor/appointments');
+            const appointmentsRes = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/advisor/appointments`);
             setAppointments(appointmentsRes.data);
             if (activeTab === 'appointments') checkNotifications();
         } catch (err) {
-            console.error(err);
+            console.error('Data fetch error:', err);
             toast.error('Data unavailable. Try again later.');
         } finally {
             setLoading(false);
@@ -86,20 +86,22 @@ const AdvisorDashboard = () => {
     const handleAddRemark = async (e) => {
         e.preventDefault();
         try {
-            await axios.post('/api/advisor/remarks', remarkData);
+            await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/advisor/remarks`, remarkData);
             toast.success('Remark added successfully');
             setRemarkData({ studentId: '', content: '' });
         } catch (err) {
+            console.error('Add remark error:', err);
             toast.error('Failed to add remark');
         }
     };
 
     const handleAppointmentStatus = async (id, status) => {
         try {
-            await axios.put(`/api/advisor/appointments/${id}`, { status });
+            await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/advisor/appointments/${id}`, { status });
             toast.success(`Appointment ${status}`);
             fetchData();
         } catch (err) {
+            console.error('Update appointment error:', err);
             toast.error('Failed to update status');
         }
     };
@@ -107,11 +109,11 @@ const AdvisorDashboard = () => {
     const viewStudentProfile = async (studentId) => {
         setStudentProfileLoading(true);
         try {
-            const res = await axios.get(`/api/advisor/student/${studentId}`);
+            const res = await axios.get(`${import.meta.env.VITE_API_URL || ''}/api/advisor/student/${studentId}`);
             setSelectedStudent(res.data);
         } catch (err) {
+            console.error('View profile error:', err);
             toast.error('Failed to load student profile');
-            console.error(err);
         } finally {
             setStudentProfileLoading(false);
         }
