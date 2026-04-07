@@ -348,56 +348,50 @@ export const createAdvisor = async (req, res) => {
 };
 
 // @desc    Delete user
-// @route   DELETE /api/admin/user/:id
+// @route   DELETE /api/admin/user/:id OR /api/admin/students/:id
 // @access  Private/Admin
 export const deleteUser = async (req, res) => {
     console.log("Incoming request:", req.method, req.originalUrl);
     try {
         console.log("Deleting user ID:", req.params.id);
-        console.log("Delete request received:", req.params.id);
-        const id = new mongoose.Types.ObjectId(req.params.id);
+        const id = req.params.id;
 
-        const user = await User.findById(id);
+        // Use findByIdAndDelete as requested
+        const user = await User.findByIdAndDelete(id);
+        
         if (!user) {
             return res.status(404).json({ success: false, msg: 'User not found' });
         }
 
-        // Remove associated profile
+        // Remove associated profile and records based on role
         if (user.role === 'student') {
             await Student.deleteOne({ userId: id });
             await AcademicRecord.deleteMany({ studentId: id });
+            cache.del('all_students');
         } else if (user.role === 'advisor') {
             await Advisor.deleteOne({ userId: id });
             await Student.updateMany({ advisorId: id }, { $set: { advisorId: null } });
+            cache.del('all_advisors');
         }
 
-        console.log("Using collection:", User.collection.name);
-        const result = await User.deleteOne({ _id: id });
-        console.log("Delete result:", result);
-        console.log("MongoDB operation completed successfully");
-
-        if (result.deletedCount === 0) {
-            return res.status(404).json({
-                success: false,
-                msg: "User not found"
-            });
-        }
+        console.log("User deleted successfully from all collections");
+        cache.del(['all_students', 'all_advisors']); // Conservative clearing
 
         res.json({
             success: true,
-            msg: "User deleted successfully"
+            msg: `${user.role.charAt(0).toUpperCase() + user.role.slice(1)} record deleted successfully`
         });
     } catch (error) {
         console.error("Delete error:", error);
         res.status(500).json({
             success: false,
-            msg: "Server error"
+            msg: "Server error during deletion"
         });
     }
 };
 
 // @desc    Update student details (including CGPA)
-// @route   PUT /api/admin/student/:id
+// @route   PUT /api/admin/students/:id
 // @access  Private/Admin
 export const updateStudent = async (req, res) => {
     console.log("Incoming request:", req.method, req.originalUrl);
@@ -410,34 +404,38 @@ export const updateStudent = async (req, res) => {
 
     try {
         console.log("Updating student:", req.params.id);
-        console.log("Using collection:", User.collection.name);
-        let user = await User.findById(req.params.id);
-        if (!user) {
-            return res.status(404).json({ msg: 'User not found' });
-        }
+        
+        // Use findByIdAndUpdate as requested
+        const updatedUser = await User.findByIdAndUpdate(
+            req.params.id,
+            { $set: { name, email } },
+            { new: true, runValidators: true }
+        );
 
-        // Update User fields
-        if (name) user.name = name;
-        if (email) user.email = email;
-        await user.save();
-        console.log("User record updated successfully");
-        console.log("MongoDB operation completed successfully");
+        if (!updatedUser) {
+            return res.status(404).json({ msg: 'Student not found' });
+        }
 
         // Update Student Profile fields
-        let studentProfile = await Student.findOne({ userId: req.params.id });
-        if (studentProfile) {
-            if (department) studentProfile.department = department;
-            if (cgpa !== undefined) studentProfile.cgpa = cgpa; // Allow setting to 0
-            if (advisorId) studentProfile.advisorId = advisorId;
-            await studentProfile.save();
-            console.log("Student profile updated successfully");
-            console.log("MongoDB operation completed successfully");
-        }
+        let studentProfile = await Student.findOneAndUpdate(
+            { userId: req.params.id },
+            { $set: { department, cgpa, advisorId } },
+            { new: true }
+        );
 
-        res.json({ msg: 'Student updated successfully', user, profile: studentProfile });
+        // Clear caches to ensure dashboard reflects changes
+        cache.del(['all_students', 'all_advisors']);
+        console.log("Cache cleared for all_students and all_advisors");
+
+        res.json({ 
+            success: true, 
+            msg: 'Student updated successfully', 
+            user: updatedUser, 
+            profile: studentProfile 
+        });
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error("Update student error:", err.message);
+        res.status(500).json({ msg: 'Server Error during student update' });
     }
 };
 

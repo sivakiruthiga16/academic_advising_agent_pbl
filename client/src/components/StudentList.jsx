@@ -28,7 +28,7 @@ const StudentList = ({ refreshTrigger, onManageRecord, onAssignAdvisor, onStuden
     const handleDelete = async (id) => {
         if (!window.confirm('Are you sure you want to remove this student?')) return;
         try {
-            await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/admin/user/${id}`, {
+            await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/admin/students/${id}`, {
                 headers: { 'x-auth-token': localStorage.getItem('token') }
             });
             setStudents(students.filter(s => s._id !== id));

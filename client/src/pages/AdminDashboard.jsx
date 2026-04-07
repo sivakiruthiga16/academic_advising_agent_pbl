@@ -257,19 +257,31 @@ const AdminDashboard = () => {
 
     const handleDeleteUser = async (id, role) => {
         if (!window.confirm(`Are you sure you want to delete this ${role}?`)) return;
+        
+        // Optimistic UI/Immediate feedback: removal from local state
+        if (role === 'student') {
+            setStudents(prev => prev.filter(s => s._id !== id));
+        } else if (role === 'advisor') {
+            setAdvisors(prev => prev.filter(a => a._id !== id));
+        }
+
         try {
             console.log(`Deleting ${role} ID:`, id);
-            const response = await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/admin/user/${id}`);
+            const route = role === 'student' ? 'students' : 'user';
+            const response = await axios.delete(`${import.meta.env.VITE_API_URL || ''}/api/admin/${route}/${id}`);
+            
             if (response.data && response.data.success) {
-                toast.success('User deleted successfully');
-                await loadUsers();
+                toast.success(response.data.msg || `${role} deleted successfully`);
             } else {
-                toast.success('User deleted');
-                await loadUsers();
+                toast.success(`${role} deleted`);
             }
+            // Background sync
+            await loadUsers();
         } catch (err) {
             console.error('Delete user error:', err);
             toast.error('Failed to delete user');
+            // Revert on error
+            await loadUsers();
         }
     };
 

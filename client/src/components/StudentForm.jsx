@@ -29,7 +29,7 @@ const StudentForm = ({ onStudentAdded, onCancel, initialData }) => {
         setLoading(true);
         try {
             if (initialData) {
-                await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/admin/student/${initialData._id}`, formData);
+                await axios.put(`${import.meta.env.VITE_API_URL || ''}/api/admin/students/${initialData._id}`, formData);
                 toast.success('Student updated successfully');
             } else {
                 await axios.post(`${import.meta.env.VITE_API_URL || ''}/api/admin/create-student`, formData);
